@@ -25,7 +25,9 @@ app.use(
 )
 app.use(express.json())
 app.use(cookieParser())
-app.use(morgan('dev'))
+if (env.nodeEnv === 'development') {
+  app.use(morgan('dev'))
+}
 app.use('/uploads', express.static(path.resolve(process.cwd(), 'backend', 'uploads')))
 
 app.get('/', (req, res) => {

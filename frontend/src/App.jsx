@@ -1,18 +1,19 @@
-import React, { Suspense, lazy, useEffect, useState } from 'react'
-import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import React, { useEffect, useState } from 'react'
+import { Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 
-const Layout = lazy(() => import('./components/Layout.jsx'))
-const Login = lazy(() => import('./pages/Login.jsx'))
-const Dashboard = lazy(() => import('./pages/Dashboard.jsx'))
-const Timetable = lazy(() => import('./pages/Timetable.jsx'))
-const Marks = lazy(() => import('./pages/Marks.jsx'))
-const Profile = lazy(() => import('./pages/Profile.jsx'))
-const PblPresentation = lazy(() => import('./pages/PblPresentation.jsx'))
-const AdminHome = lazy(() => import('./pages/AdminHome.jsx'))
-const AdminManageUsers = lazy(() => import('./pages/AdminManageUsers.jsx'))
-const FacultyAssignments = lazy(() => import('./pages/FacultyAssignments.jsx'))
-const StudentPanelConfig = lazy(() => import('./pages/StudentPanelConfig.jsx'))
-const LoggedOut = lazy(() => import('./pages/LoggedOut.jsx'))
+import Layout from './components/Layout.jsx'
+
+import Login from './pages/Login.jsx'
+import Dashboard from './pages/Dashboard.jsx'
+import Timetable from './pages/Timetable.jsx'
+import Marks from './pages/Marks.jsx'
+import Profile from './pages/Profile.jsx'
+import PblPresentation from './pages/PblPresentation.jsx'
+import AdminHome from './pages/AdminHome.jsx'
+import AdminManageUsers from './pages/AdminManageUsers.jsx'
+import FacultyAssignments from './pages/FacultyAssignments.jsx'
+import StudentPanelConfig from './pages/StudentPanelConfig.jsx'
+import LoggedOut from './pages/LoggedOut.jsx'
 
 function PageFallback() {
   return <div className="min-h-screen bg-slateish-100" />
@@ -100,15 +101,27 @@ export default function App() {
 
   const handleLogout = async () => {
     try {
-      await fetch('/api/auth/logout', {
+      const response = await fetch('/api/auth/logout', {
         method: 'POST',
         credentials: 'include',
       })
-    } finally {
-      setUser(null)
-      setRole('Student')
-      navigate('/logged-out')
+
+      if (response.ok && response.status !== 204) {
+        const data = await response.json().catch(() => ({}))
+        if (data.logoutUrl) {
+          setUser(null)
+          setRole('Student')
+          window.location.href = data.logoutUrl
+          return
+        }
+      }
+    } catch {
+      // continue to local logout even if the request fails
     }
+
+    setUser(null)
+    setRole('Student')
+    navigate('/logged-out')
   }
 
   useEffect(() => {
@@ -132,177 +145,86 @@ export default function App() {
   }
 
   return (
-    <Suspense fallback={<PageFallback />}>
-      <Routes>
-        <Route path="/" element={<Navigate to={isAuthenticated ? '/home' : '/login'} />} />
+    <Routes>
+      <Route path="/" element={<Navigate to={isAuthenticated ? '/home' : '/login'} />} />
 
+      <Route
+        path="/login"
+        element={
+          isAuthenticated ? (
+            <Navigate to="/home" />
+          ) : (
+            <Login
+              onLogin={handleLogin}
+              onKeycloakLogin={handleKeycloakLogin}
+              onResetFirstLoginPassword={handleResetFirstLoginPassword}
+            />
+          )
+        }
+      />
+
+      <Route
+        path="/logged-out"
+        element={
+          <LoggedOut />
+        }
+      />
+
+      {/* Protected Routes with Persistent Layout */}
+      {isAuthenticated && (
         <Route
-          path="/login"
           element={
-            isAuthenticated ? (
-              <Navigate to="/home" />
-            ) : (
-              <Login
-                onLogin={handleLogin}
-                onKeycloakLogin={handleKeycloakLogin}
-                onResetFirstLoginPassword={handleResetFirstLoginPassword}
-              />
-            )
+            <Layout role={role} user={user} onLogout={handleLogout}>
+              <Outlet />
+            </Layout>
           }
-        />
+        >
+          <Route
+            path="/home"
+            element={isAdmin ? <AdminHome user={user} /> : <Dashboard role={role} user={user} permissions={[]} />}
+          />
 
-        <Route
-          path="/logged-out"
-          element={<LoggedOut />}
-        />
+          <Route
+            path="/admin/manage"
+            element={isAdmin ? <AdminManageUsers /> : <Navigate to="/home" />}
+          />
 
-        <Route
-          path="/home"
-          element={
-            isAuthenticated ? (
-                <Layout role={role} user={user} onLogout={handleLogout}>
-                {isAdmin ? <AdminHome user={user} /> : <Dashboard role={role} user={user} permissions={[]} />}
-              </Layout>
-            ) : (
-              <Navigate to="/login" />
-            )
-          }
-        />
+          <Route
+            path="/assignments"
+            element={isAdmin || isFacultyCoordinator ? <FacultyAssignments /> : <Navigate to="/home" />}
+          />
 
-        <Route
-          path="/admin/manage"
-          element={
-            isAuthenticated ? (
-              isAdmin ? (
-                <Layout role={role} user={user} onLogout={handleLogout}>
-                  <AdminManageUsers />
-                </Layout>
-              ) : (
-                <Navigate to="/home" />
-              )
-            ) : (
-              <Navigate to="/login" />
-            )
-          }
-        />
+          <Route
+            path="/faculty/student-panel"
+            element={isFaculty || isFacultyCoordinator ? <StudentPanelConfig role={role} /> : <Navigate to="/home" />}
+          />
 
-        <Route
-          path="/assignments"
-          element={
-            isAuthenticated ? (
-              isAdmin || isFacultyCoordinator ? (
-                <Layout role={role} user={user} onLogout={handleLogout}>
-                  <FacultyAssignments />
-                </Layout>
-              ) : (
-                <Navigate to="/home" />
-              )
-            ) : (
-              <Navigate to="/login" />
-            )
-          }
-        />
+          <Route
+            path="/pbl-presentation"
+            element={isStudent ? <PblPresentation /> : <Navigate to="/home" />}
+          />
 
-        <Route
-          path="/faculty/student-panel"
-          element={
-            isAuthenticated ? (
-              isFaculty || isFacultyCoordinator ? (
-                <Layout role={role} user={user} onLogout={handleLogout}>
-                  <StudentPanelConfig role={role} />
-                </Layout>
-              ) : (
-                <Navigate to="/home" />
-              )
-            ) : (
-              <Navigate to="/login" />
-            )
-          }
-        />
+          <Route
+            path="/timetable"
+            element={isStudent || isAdmin ? <Navigate to="/home" /> : <Timetable />}
+          />
 
-        <Route
-          path="/pbl-presentation"
-          element={
-            isAuthenticated ? (
-              isStudent ? (
-                <Layout role={role} user={user} onLogout={handleLogout}>
-                  <PblPresentation />
-                </Layout>
-              ) : (
-                <Navigate to="/home" />
-              )
-            ) : (
-              <Navigate to="/login" />
-            )
-          }
-        />
+          <Route
+            path="/reports"
+            element={isStudent || isAdmin ? <Navigate to="/home" /> : <Timetable showReportsMenu />}
+          />
 
-        <Route
-          path="/timetable"
-          element={
-            isAuthenticated ? (
-              isStudent || isAdmin ? (
-                <Navigate to="/home" />
-              ) : (
-                <Layout role={role} user={user} onLogout={handleLogout}>
-                  <Timetable />
-                </Layout>
-              )
-            ) : (
-              <Navigate to="/login" />
-            )
-          }
-        />
+          <Route
+            path="/marks"
+            element={isStudent || isAdmin ? <Navigate to="/home" /> : <Marks />}
+          />
 
-        <Route
-          path="/reports"
-          element={
-            isAuthenticated ? (
-              isStudent || isAdmin ? (
-                <Navigate to="/home" />
-              ) : (
-                <Layout role={role} user={user} onLogout={handleLogout}>
-                  <Timetable showReportsMenu />
-                </Layout>
-              )
-            ) : (
-              <Navigate to="/login" />
-            )
-          }
-        />
+          <Route path="/profile" element={<Profile />} />
+        </Route>
+      )}
 
-        <Route
-          path="/marks"
-          element={
-            isAuthenticated ? (
-              isStudent || isAdmin ? (
-                <Navigate to="/home" />
-              ) : (
-                <Layout role={role} user={user} onLogout={handleLogout}>
-                  <Marks />
-                </Layout>
-              )
-            ) : (
-              <Navigate to="/login" />
-            )
-          }
-        />
-
-        <Route
-          path="/profile"
-          element={
-            isAuthenticated ? (
-              <Layout role={role} user={user} onLogout={handleLogout}>
-                <Profile />
-              </Layout>
-            ) : (
-              <Navigate to="/login" />
-            )
-          }
-        />
-
-        <Route path="*" element={<Navigate to={isAuthenticated ? '/home' : '/login'} />} />
-      </Routes>
-    </Suspense>
+      {/* Fallback for unauthenticated or unknown routes */}
+      <Route path="*" element={<Navigate to={isAuthenticated ? '/home' : '/login'} />} />
+    </Routes>
   )
 }

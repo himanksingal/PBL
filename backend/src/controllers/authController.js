@@ -18,6 +18,7 @@ import {
 
 function mapKeycloakRole(claims) {
   const roleList = claims?.realm_access?.roles || []
+  console.log('[keycloak] realm roles received:', roleList)
   if (roleList.includes('master-admin')) return 'Master Admin'
   if (roleList.includes('faculty-coordinator')) return 'Faculty Coordinator'
   if (roleList.includes('faculty')) return 'Faculty'
@@ -209,6 +210,7 @@ export async function resetFirstLoginPassword(req, res) {
 
 export function keycloakLogin(req, res) {
   if (!keycloakEnabled()) {
+    console.error('[keycloak] Login attempted but Keycloak is not configured. Check KEYCLOAK_URL, KEYCLOAK_REALM, KEYCLOAK_CLIENT_ID, KEYCLOAK_CLIENT_SECRET in .env')
     return res.status(503).json({
       error: 'Keycloak is not configured. Set KEYCLOAK_* values in backend/.env.',
     })
@@ -216,28 +218,54 @@ export function keycloakLogin(req, res) {
 
   const state = createLoginState()
   registerState(state)
+  const url = buildAuthorizationUrl(state)
 
-  return res.redirect(buildAuthorizationUrl(state))
+
+  return res.redirect(url)
 }
 
 export async function keycloakCallback(req, res) {
   try {
     if (!keycloakEnabled()) {
+      console.error('[keycloak] Callback hit but Keycloak is not configured')
       return res.status(503).send('Keycloak not configured.')
     }
 
-    const { code, state } = req.query
-    if (!code || !state || !consumeState(state)) {
-      return res.status(400).send('Invalid keycloak callback state.')
+    const { code, state, error: kcError, error_description } = req.query
+
+    // Keycloak can redirect back with an error instead of a code
+    if (kcError) {
+      console.error(`[keycloak] Auth error from Keycloak: ${kcError} - ${error_description || ''}`)
+      return res.redirect(`${env.frontendUrl}/login?error=${encodeURIComponent(kcError)}`)
     }
 
+    if (!code || !state) {
+      console.error('[keycloak] Missing code or state in callback query:', req.query)
+      return res.status(400).send('Invalid keycloak callback — missing code or state.')
+    }
+
+    if (!consumeState(state)) {
+      console.error('[keycloak] Invalid or expired state:', state)
+      return res.status(400).send('Invalid keycloak callback — state expired or unknown.')
+    }
+
+
     const tokenData = await exchangeCodeForTokens(code)
-    const claims = decodeJwtPayload(tokenData.id_token)
+
+    // Decode access_token for roles (realm_access lives here)
+    // Decode id_token for profile info (name, email, etc.)
+    const accessClaims = tokenData.access_token ? decodeJwtPayload(tokenData.access_token) : null
+    const idClaims = tokenData.id_token ? decodeJwtPayload(tokenData.id_token) : null
+    const claims = idClaims || accessClaims
+
     if (!claims) {
+      console.error('[keycloak] Failed to decode any JWT payload')
       return res.status(400).send('Unable to decode keycloak token.')
     }
 
-    const role = mapKeycloakRole(claims)
+
+    // Use access_token for role mapping (Keycloak puts realm_access there, not in id_token)
+    const role = mapKeycloakRole(accessClaims || claims)
     const user = {
       id: claims.sub,
       registrationNumber:
@@ -254,6 +282,7 @@ export async function keycloakCallback(req, res) {
 
     const profile = await upsertUserProfile(user, 'keycloak')
 
+
     const appToken = issueToken({
       role,
       source: 'keycloak',
@@ -265,10 +294,15 @@ export async function keycloakCallback(req, res) {
     })
 
     setSessionCookie(res, appToken)
-    setKeycloakIdTokenCookie(res, tokenData.id_token)
+    if (tokenData.id_token) {
+      setKeycloakIdTokenCookie(res, tokenData.id_token)
+    }
+
+
     return res.redirect(new URL('/home', env.frontendUrl).toString())
   } catch (error) {
-    return res.status(500).send(error.message)
+    console.error('[keycloak] Callback error:', error.message, error.stack)
+    return res.redirect(`${env.frontendUrl}/login?error=${encodeURIComponent(error.message)}`)
   }
 }
 

@@ -1,4 +1,5 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import BrandLogo from '../components/BrandLogo.jsx'
 import { Button } from '../components/ui/button.jsx'
 import { Input } from '../components/ui/input.jsx'
@@ -6,6 +7,7 @@ import { Input } from '../components/ui/input.jsx'
 export default function Login({ onLogin, onKeycloakLogin, onResetFirstLoginPassword }) {
   const collageBg = '/assets/collagemujslcm.png'
   const loginPanelBg = '/assets/mujslcmlogin.jpg'
+  const [searchParams] = useSearchParams()
 
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -15,6 +17,14 @@ export default function Login({ onLogin, onKeycloakLogin, onResetFirstLoginPassw
   const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
+  // Show Keycloak errors that arrive via URL query params
+  useEffect(() => {
+    const kcError = searchParams.get('error')
+    if (kcError) {
+      setError(`Keycloak login failed: ${kcError}`)
+    }
+  }, [searchParams])
 
   const handleLocalLogin = async () => {
     setLoading(true)
@@ -80,7 +90,7 @@ export default function Login({ onLogin, onKeycloakLogin, onResetFirstLoginPassw
               </div>
 
               {!resetMode ? (
-                <>
+                <form onSubmit={(e) => { e.preventDefault(); handleLocalLogin() }}>
                   <div className="mx-auto w-full max-w-[520px] space-y-4">
                     <Input
                       placeholder="Username"
@@ -95,17 +105,17 @@ export default function Login({ onLogin, onKeycloakLogin, onResetFirstLoginPassw
                     />
                   </div>
 
-                  <div className="mx-auto flex w-full max-w-[520px] justify-center gap-4">
-                    <Button onClick={handleLocalLogin} disabled={loading}>
+                  <div className="mx-auto flex w-full max-w-[520px] justify-center gap-4 mt-4">
+                    <Button type="submit" disabled={loading}>
                       {loading ? 'Signing In...' : 'Sign In'}
                     </Button>
-                    <Button variant="outline" onClick={onKeycloakLogin}>
+                    <Button type="button" variant="outline" onClick={onKeycloakLogin}>
                       Sign In with Keycloak
                     </Button>
                   </div>
-                </>
+                </form>
               ) : (
-                <>
+                <form onSubmit={(e) => { e.preventDefault(); handleResetPassword() }}>
                   <div className="mx-auto w-full max-w-[520px] space-y-4">
                     <Input value={username} disabled placeholder="Username" />
                     <Input
@@ -128,8 +138,8 @@ export default function Login({ onLogin, onKeycloakLogin, onResetFirstLoginPassw
                     />
                   </div>
 
-                  <div className="mx-auto flex w-full max-w-[520px] justify-center gap-4">
-                    <Button onClick={handleResetPassword} disabled={loading}>
+                  <div className="mx-auto flex w-full max-w-[520px] justify-center gap-4 mt-4">
+                    <Button type="submit" disabled={loading}>
                       {loading ? 'Updating...' : 'Reset Password'}
                     </Button>
                     <Button
@@ -145,7 +155,7 @@ export default function Login({ onLogin, onKeycloakLogin, onResetFirstLoginPassw
                       Back to Sign In
                     </Button>
                   </div>
-                </>
+                </form>
               )}
 
               {error && <p className="text-center text-sm text-red-600">{error}</p>}

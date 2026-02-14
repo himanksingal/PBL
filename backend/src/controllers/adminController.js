@@ -4,6 +4,7 @@ import { LocalCredential } from '../models/LocalCredential.js'
 import { EnumConfig } from '../models/EnumConfig.js'
 import { enumDefaults } from '../services/enumDefaults.js'
 import { hashPassword } from '../services/passwordService.js'
+import { ensureDb, parsePagination } from '../lib/helpers.js'
 
 function buildSearchFilter(search) {
   if (!search) return {}
@@ -71,9 +72,9 @@ async function buildUserPayload(body, { isCreate }) {
       body.forcePasswordReset === undefined
         ? null
         : body.forcePasswordReset === true ||
-          body.forcePasswordReset === 'true' ||
-          body.forcePasswordReset === 1 ||
-          body.forcePasswordReset === '1',
+        body.forcePasswordReset === 'true' ||
+        body.forcePasswordReset === 1 ||
+        body.forcePasswordReset === '1',
     email: body.email ? String(body.email).trim() : null,
     phone: body.phone ? String(body.phone).trim() : null,
     department: body.department ? String(body.department).trim() : null,
@@ -117,17 +118,7 @@ async function buildUserPayload(body, { isCreate }) {
   return { payload }
 }
 
-function ensureDb(res) {
-  if (isDatabaseConnected()) return true
-  res.status(503).json({ error: 'Database unavailable.' })
-  return false
-}
 
-function parsePagination(query, fallbackPageSize = 10, maxPageSize = 100) {
-  const page = Math.max(1, Number(query.page) || 1)
-  const pageSize = Math.min(maxPageSize, Math.max(1, Number(query.pageSize) || fallbackPageSize))
-  return { page, pageSize, skip: (page - 1) * pageSize }
-}
 
 export async function getAdminStats(req, res) {
   if (!ensureDb(res)) return

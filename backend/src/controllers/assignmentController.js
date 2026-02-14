@@ -1,17 +1,8 @@
 import { isDatabaseConnected } from '../config/db.js'
 import { UserProfile } from '../models/UserProfile.js'
+import { ensureDb, parsePagination } from '../lib/helpers.js'
 
-function ensureDb(res) {
-  if (isDatabaseConnected()) return true
-  res.status(503).json({ error: 'Database unavailable.' })
-  return false
-}
 
-function parsePagination(query, fallbackPageSize = 10, maxPageSize = 100) {
-  const page = Math.max(1, Number(query.page) || 1)
-  const pageSize = Math.min(maxPageSize, Math.max(1, Number(query.pageSize) || fallbackPageSize))
-  return { page, pageSize, skip: (page - 1) * pageSize }
-}
 
 export async function listFacultyOptions(req, res) {
   if (!ensureDb(res)) return

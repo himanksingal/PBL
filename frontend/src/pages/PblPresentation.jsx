@@ -20,6 +20,7 @@ export default function PblPresentation() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [status, setStatus] = useState({
     attemptCount: 0,
     canSubmit: true,
@@ -68,6 +69,8 @@ export default function PblPresentation() {
       fillFromLatest(data.latestSubmission)
     } catch (err) {
       setError(err.message)
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -113,6 +116,14 @@ export default function PblPresentation() {
   const isMajorProject = form.submissionType === 'major-project'
   const isInternship = form.submissionType === 'internship'
   const showForm = status.attemptCount === 0 || resubmitMode
+
+  if (loading) {
+    return (
+      <div className="flex h-64 w-full items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-200 border-t-brand-600"></div>
+      </div>
+    )
+  }
 
   return (
     <div className="px-6 py-4">

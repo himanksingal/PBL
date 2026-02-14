@@ -3,6 +3,7 @@ import { findExaminerByGuide } from '../services/studentData.js'
 import { PblSubmission } from '../models/PblSubmission.js'
 import { isDatabaseConnected } from '../config/db.js'
 import { UserProfile } from '../models/UserProfile.js'
+import { quoteCsv } from '../lib/helpers.js'
 
 function isValidUrl(value) {
   try {
@@ -183,9 +184,7 @@ export async function getAssignedFacultyForStudent(req, res) {
   })
 }
 
-function quoteCsv(value) {
-  return `"${String(value ?? '').replace(/"/g, '""')}"`
-}
+
 
 export async function exportPblPresentations(req, res) {
   if (!isDatabaseConnected()) {

@@ -1,17 +1,7 @@
 import { PblSubmission } from '../models/PblSubmission.js'
 import { UserProfile } from '../models/UserProfile.js'
 import { isDatabaseConnected } from '../config/db.js'
-
-function quoteCsv(value) {
-  return `"${String(value ?? '').replace(/"/g, '""')}"`
-}
-
-function toCsv(headers, rows) {
-  return [
-    headers.join(','),
-    ...rows.map((row) => headers.map((header) => quoteCsv(row[header])).join(',')),
-  ].join('\n')
-}
+import { parsePagination, toCsv } from '../lib/helpers.js'
 
 function mapStudentItem(student, submissions) {
   const latest = submissions[0] || null
@@ -29,12 +19,6 @@ function mapStudentItem(student, submissions) {
     latestSubmission: latest,
     submissionCount: submissions.length,
   }
-}
-
-function parsePagination(query, fallbackPageSize = 10, maxPageSize = 100) {
-  const page = Math.max(1, Number(query.page) || 1)
-  const pageSize = Math.min(maxPageSize, Math.max(1, Number(query.pageSize) || fallbackPageSize))
-  return { page, pageSize, skip: (page - 1) * pageSize }
 }
 
 async function buildAssignedStudentPayload(facultyId) {
