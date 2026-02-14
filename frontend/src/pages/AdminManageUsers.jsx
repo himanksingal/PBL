@@ -1,4 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import { Button } from '../components/ui/button.jsx'
+import { Card } from '../components/ui/card.jsx'
+import { Checkbox } from '../components/ui/checkbox.jsx'
+import { Input } from '../components/ui/input.jsx'
+import { Select } from '../components/ui/select.jsx'
+import { Spinner } from '../components/ui/spinner.jsx'
+import { Table, TableCell, TableHead, TableRow } from '../components/ui/table.jsx'
 
 const roleOptions = ['Student', 'Faculty Coordinator', 'Master Admin']
 
@@ -147,27 +154,24 @@ export default function AdminManageUsers() {
 
   return (
     <div className="space-y-6 px-6 py-4">
-      <div className="rounded-xl border border-slateish-200 bg-white p-6 shadow-soft">
+      <Card>
         <h1 className="text-xl font-semibold text-slateish-700">Manage Users</h1>
 
         <form className="mt-4 grid gap-3 md:grid-cols-4" onSubmit={onSubmit}>
-          <input
-            className="shadcn-input"
+          <Input
             placeholder="User ID"
             value={form.id}
             onChange={(e) => setForm((prev) => ({ ...prev, id: e.target.value }))}
             disabled={Boolean(editingId)}
             required
           />
-          <input
-            className="shadcn-input"
+          <Input
             placeholder="Name"
             value={form.name}
             onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
             required
           />
-          <select
-            className="shadcn-input"
+          <Select
             value={form.role}
             onChange={(e) => setForm((prev) => ({ ...prev, role: e.target.value }))}
             required
@@ -177,26 +181,23 @@ export default function AdminManageUsers() {
                 {role}
               </option>
             ))}
-          </select>
-          <select
-            className="shadcn-input"
+          </Select>
+          <Select
             value={form.authSource}
             onChange={(e) => setForm((prev) => ({ ...prev, authSource: e.target.value }))}
             required
           >
             <option value="local">Local (Mongo)</option>
             <option value="keycloak">Keycloak</option>
-          </select>
-          <input
-            className="shadcn-input"
+          </Select>
+          <Input
             placeholder="Username (local auth)"
             value={form.username}
             onChange={(e) => setForm((prev) => ({ ...prev, username: e.target.value }))}
             required={form.authSource === 'local'}
             disabled={form.authSource !== 'local'}
           />
-          <input
-            className="shadcn-input"
+          <Input
             type="password"
             placeholder={editingId ? 'New Password (optional)' : 'Temporary Password (min 8 chars)'}
             value={form.password}
@@ -205,87 +206,78 @@ export default function AdminManageUsers() {
             disabled={form.authSource !== 'local'}
           />
           <label className="flex items-center gap-2 rounded-md border border-slateish-200 px-3 py-2 text-sm text-slateish-600">
-            <input
-              type="checkbox"
+            <Checkbox
               checked={Boolean(form.forcePasswordReset)}
               onChange={(e) => setForm((prev) => ({ ...prev, forcePasswordReset: e.target.checked }))}
               disabled={form.authSource !== 'local'}
             />
             Force password reset on next login
           </label>
-          <input
-            className="shadcn-input"
+          <Input
             placeholder="Department"
             value={form.department}
             onChange={(e) => setForm((prev) => ({ ...prev, department: e.target.value }))}
           />
-          <input
-            className="shadcn-input"
+          <Input
             placeholder="Semester"
             value={form.semester}
             onChange={(e) => setForm((prev) => ({ ...prev, semester: e.target.value }))}
           />
-          <input
-            className="shadcn-input"
+          <Input
             placeholder="Graduation Year"
             value={form.graduationYear}
             onChange={(e) => setForm((prev) => ({ ...prev, graduationYear: e.target.value }))}
           />
-          <input
-            className="shadcn-input"
+          <Input
             type="email"
             placeholder="Email"
             value={form.email}
             onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
           />
-          <input
-            className="shadcn-input"
+          <Input
             placeholder="Phone"
             value={form.phone}
             onChange={(e) => setForm((prev) => ({ ...prev, phone: e.target.value }))}
           />
           <div className="md:col-span-4 flex gap-3">
-            <button className="shadcn-button" type="submit">
+            <Button type="submit">
               {editingId ? 'Update User' : 'Add User'}
-            </button>
+            </Button>
             {editingId && (
-              <button
+              <Button
                 type="button"
-                className="shadcn-button-outline"
+                variant="outline"
                 onClick={() => {
                   setEditingId('')
                   setForm(initialForm)
                 }}
               >
                 Cancel Edit
-              </button>
+              </Button>
             )}
           </div>
         </form>
-      </div>
+      </Card>
 
-      <div className="rounded-xl border border-slateish-200 bg-white p-6 shadow-soft">
+      <Card>
         <div className="grid gap-3 md:grid-cols-6">
-          <input
-            className="shadcn-input md:col-span-2"
+          <Input
+            className="md:col-span-2"
             placeholder="Search by name/id/department..."
             value={filters.search}
             onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))}
           />
-          <input
-            className="shadcn-input"
+          <Input
             placeholder="Semester"
             value={filters.semester}
             onChange={(e) => setFilters((prev) => ({ ...prev, semester: e.target.value }))}
           />
-          <input
-            className="shadcn-input"
+          <Input
             placeholder="Year"
             value={filters.graduationYear}
             onChange={(e) => setFilters((prev) => ({ ...prev, graduationYear: e.target.value }))}
           />
-          <select
-            className="shadcn-input"
+          <Select
             value={filters.sortBy}
             onChange={(e) => setFilters((prev) => ({ ...prev, sortBy: e.target.value }))}
           >
@@ -294,17 +286,15 @@ export default function AdminManageUsers() {
             <option value="graduationYear">Sort: Year</option>
             <option value="role">Sort: Role</option>
             <option value="externalId">Sort: ID</option>
-          </select>
-          <select
-            className="shadcn-input"
+          </Select>
+          <Select
             value={filters.sortOrder}
             onChange={(e) => setFilters((prev) => ({ ...prev, sortOrder: e.target.value }))}
           >
             <option value="asc">Asc</option>
             <option value="desc">Desc</option>
-          </select>
-          <select
-            className="shadcn-input"
+          </Select>
+          <Select
             value={filters.role}
             onChange={(e) => setFilters((prev) => ({ ...prev, role: e.target.value }))}
           >
@@ -314,12 +304,12 @@ export default function AdminManageUsers() {
                 {role}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
 
         {(searching || loading) && (
           <div className="mt-4 flex items-center gap-2 text-sm text-slateish-500">
-            <span className="h-4 w-4 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" />
+            <Spinner />
             Searching users...
           </div>
         )}
@@ -328,64 +318,62 @@ export default function AdminManageUsers() {
         {success && <p className="mt-4 text-sm text-emerald-600">{success}</p>}
 
         <div className="mt-4 overflow-auto">
-          <table className="min-w-full border-collapse text-sm">
+          <Table>
             <thead>
               <tr className="bg-slateish-100 text-left text-slateish-600">
-                <th className="px-3 py-2">ID</th>
-                <th className="px-3 py-2">Name</th>
-                <th className="px-3 py-2">Role</th>
-                <th className="px-3 py-2">Auth</th>
-                <th className="px-3 py-2">Username</th>
-                <th className="px-3 py-2">Reset Required</th>
-                <th className="px-3 py-2">Semester</th>
-                <th className="px-3 py-2">Year</th>
-                <th className="px-3 py-2">Department</th>
-                <th className="px-3 py-2">Actions</th>
+                <TableHead>ID</TableHead>
+                <TableHead>Name</TableHead>
+                <TableHead>Role</TableHead>
+                <TableHead>Auth</TableHead>
+                <TableHead>Username</TableHead>
+                <TableHead>Reset Required</TableHead>
+                <TableHead>Semester</TableHead>
+                <TableHead>Year</TableHead>
+                <TableHead>Department</TableHead>
+                <TableHead>Actions</TableHead>
               </tr>
             </thead>
             <tbody>
               {users.map((user) => (
-                <tr key={user.id} className="border-b border-slateish-200">
-                  <td className="px-3 py-2">{user.id}</td>
-                  <td className="px-3 py-2">{user.name}</td>
-                  <td className="px-3 py-2">{user.role}</td>
-                  <td className="px-3 py-2">{user.authSource || '-'}</td>
-                  <td className="px-3 py-2">{user.username || '-'}</td>
-                  <td className="px-3 py-2">{user.mustResetPassword ? 'Yes' : 'No'}</td>
-                  <td className="px-3 py-2">{user.semester || '-'}</td>
-                  <td className="px-3 py-2">{user.graduationYear || '-'}</td>
-                  <td className="px-3 py-2">{user.department || '-'}</td>
-                  <td className="px-3 py-2">
+                <TableRow key={user.id}>
+                  <TableCell>{user.id}</TableCell>
+                  <TableCell>{user.name}</TableCell>
+                  <TableCell>{user.role}</TableCell>
+                  <TableCell>{user.authSource || '-'}</TableCell>
+                  <TableCell>{user.username || '-'}</TableCell>
+                  <TableCell>{user.mustResetPassword ? 'Yes' : 'No'}</TableCell>
+                  <TableCell>{user.semester || '-'}</TableCell>
+                  <TableCell>{user.graduationYear || '-'}</TableCell>
+                  <TableCell>{user.department || '-'}</TableCell>
+                  <TableCell>
                     <div className="flex gap-2">
-                      <button
-                        className="rounded-md border border-brand-400 px-2 py-1 text-brand-600"
+                      <Button
+                        variant="subtle"
                         onClick={() => onEdit(user)}
-                        type="button"
                       >
                         Edit
-                      </button>
-                      <button
-                        className="rounded-md border border-red-300 px-2 py-1 text-red-600"
+                      </Button>
+                      <Button
+                        variant="destructive"
                         onClick={() => onDelete(user.id)}
-                        type="button"
                       >
                         Delete
-                      </button>
+                      </Button>
                     </div>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
               {users.length === 0 && !loading && !searching && (
                 <tr>
-                  <td colSpan={10} className="px-3 py-4 text-center text-slateish-500">
+                  <TableCell colSpan={10} className="py-4 text-center text-slateish-500">
                     No users found.
-                  </td>
+                  </TableCell>
                 </tr>
               )}
             </tbody>
-          </table>
+          </Table>
         </div>
-      </div>
+      </Card>
     </div>
   )
 }

@@ -1,5 +1,7 @@
 import React, { useState } from 'react'
 import BrandLogo from '../components/BrandLogo.jsx'
+import { Button } from '../components/ui/button.jsx'
+import { Input } from '../components/ui/input.jsx'
 
 export default function Login({ onLogin, onKeycloakLogin, onResetFirstLoginPassword }) {
   const [username, setUsername] = useState('')
@@ -80,14 +82,12 @@ export default function Login({ onLogin, onKeycloakLogin, onResetFirstLoginPassw
             {!resetMode ? (
               <>
                 <div className="space-y-4">
-                  <input
-                    className="shadcn-input"
+                  <Input
                     placeholder="Username"
                     value={username}
                     onChange={(event) => setUsername(event.target.value)}
                   />
-                  <input
-                    className="shadcn-input"
+                  <Input
                     placeholder="Password"
                     type="password"
                     value={password}
@@ -96,34 +96,31 @@ export default function Login({ onLogin, onKeycloakLogin, onResetFirstLoginPassw
                 </div>
 
                 <div className="flex gap-4">
-                  <button className="shadcn-button" onClick={handleLocalLogin} disabled={loading}>
+                  <Button onClick={handleLocalLogin} disabled={loading}>
                     {loading ? 'Signing In...' : 'Sign In'}
-                  </button>
-                  <button className="shadcn-button-outline" onClick={onKeycloakLogin}>
+                  </Button>
+                  <Button variant="outline" onClick={onKeycloakLogin}>
                     Sign In with Keycloak
-                  </button>
+                  </Button>
                 </div>
               </>
             ) : (
               <>
                 <div className="space-y-4">
-                  <input className="shadcn-input" value={username} disabled placeholder="Username" />
-                  <input
-                    className="shadcn-input"
+                  <Input value={username} disabled placeholder="Username" />
+                  <Input
                     value={currentPasswordForReset}
                     type="password"
                     onChange={(event) => setCurrentPasswordForReset(event.target.value)}
                     placeholder="Current/Temporary Password"
                   />
-                  <input
-                    className="shadcn-input"
+                  <Input
                     value={newPassword}
                     type="password"
                     onChange={(event) => setNewPassword(event.target.value)}
                     placeholder="New Password"
                   />
-                  <input
-                    className="shadcn-input"
+                  <Input
                     value={confirmPassword}
                     type="password"
                     onChange={(event) => setConfirmPassword(event.target.value)}
@@ -132,12 +129,12 @@ export default function Login({ onLogin, onKeycloakLogin, onResetFirstLoginPassw
                 </div>
 
                 <div className="flex gap-4">
-                  <button className="shadcn-button" onClick={handleResetPassword} disabled={loading}>
+                  <Button onClick={handleResetPassword} disabled={loading}>
                     {loading ? 'Updating...' : 'Reset Password'}
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
-                    className="shadcn-button-outline"
+                    variant="outline"
                     onClick={() => {
                       setResetMode(false)
                       setNewPassword('')
@@ -146,7 +143,7 @@ export default function Login({ onLogin, onKeycloakLogin, onResetFirstLoginPassw
                     }}
                   >
                     Back to Sign In
-                  </button>
+                  </Button>
                 </div>
               </>
             )}
