@@ -57,7 +57,7 @@ export function getLocalStats() {
   const counts = localUserProfiles.reduce(
     (acc, user) => {
       if (user.role === 'Student') acc.students += 1
-      if (user.role === 'Faculty Coordinator') acc.faculty += 1
+      if (user.role === 'Faculty Coordinator' || user.role === 'Faculty') acc.faculty += 1
       if (user.role === 'Master Admin') acc.admins += 1
       return acc
     },
@@ -78,11 +78,9 @@ export function createLocalUser(input) {
     email: input.email || null,
     phone: input.phone || null,
     department: input.department || null,
+    branch: input.branch || null,
     semester: input.semester || null,
     graduationYear: input.graduationYear || null,
-    contact: input.contact || [input.email, input.phone].filter(Boolean).join(' | ') || null,
-    isMainCoordinator: Boolean(input.isMainCoordinator),
-    mainCoordinatorAssignedBy: input.mainCoordinatorAssignedBy || null,
   }
 
   localUserProfiles.push(newUser)
@@ -98,10 +96,6 @@ export function updateLocalUser(id, updates) {
     ...prev,
     ...updates,
     id: prev.id,
-  }
-
-  if (updates.email !== undefined || updates.phone !== undefined || updates.contact !== undefined) {
-    next.contact = updates.contact ?? ([next.email, next.phone].filter(Boolean).join(' | ') || null)
   }
 
   localUserProfiles[index] = next

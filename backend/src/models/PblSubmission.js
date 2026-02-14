@@ -20,6 +20,7 @@ const PblSubmissionSchema = new mongoose.Schema(
     offerLetterPath: { type: String, default: null },
     submittedBy: { type: String, required: true },
     submittedByRole: { type: String, required: true },
+    attemptNumber: { type: Number, required: true, min: 1, max: 2 },
   },
   {
     timestamps: true,

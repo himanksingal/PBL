@@ -10,6 +10,9 @@ const Profile = lazy(() => import('./pages/Profile.jsx'))
 const PblPresentation = lazy(() => import('./pages/PblPresentation.jsx'))
 const AdminHome = lazy(() => import('./pages/AdminHome.jsx'))
 const AdminManageUsers = lazy(() => import('./pages/AdminManageUsers.jsx'))
+const FacultyAssignments = lazy(() => import('./pages/FacultyAssignments.jsx'))
+const StudentPanelConfig = lazy(() => import('./pages/StudentPanelConfig.jsx'))
+const LoggedOut = lazy(() => import('./pages/LoggedOut.jsx'))
 
 function PageFallback() {
   return <div className="min-h-screen bg-slateish-100" />
@@ -96,27 +99,15 @@ export default function App() {
   }
 
   const handleLogout = async () => {
-    let logoutUrl = ''
     try {
-      const response = await fetch('/api/auth/logout', {
+      await fetch('/api/auth/logout', {
         method: 'POST',
         credentials: 'include',
       })
-      if (response.ok) {
-        const contentType = response.headers.get('content-type') || ''
-        if (contentType.includes('application/json')) {
-          const data = await response.json()
-          logoutUrl = data.logoutUrl || ''
-        }
-      }
     } finally {
       setUser(null)
       setRole('Student')
-      if (logoutUrl) {
-        window.location.href = logoutUrl
-      } else {
-        navigate('/login')
-      }
+      navigate('/logged-out')
     }
   }
 
@@ -133,6 +124,8 @@ export default function App() {
   const isAuthenticated = Boolean(user)
   const isStudent = role === 'Student'
   const isAdmin = role === 'Master Admin'
+  const isFacultyCoordinator = role === 'Faculty Coordinator'
+  const isFaculty = role === 'Faculty'
 
   if (loadingSession) {
     return <PageFallback />
@@ -159,11 +152,16 @@ export default function App() {
         />
 
         <Route
+          path="/logged-out"
+          element={<LoggedOut />}
+        />
+
+        <Route
           path="/home"
           element={
             isAuthenticated ? (
-              <Layout role={role} user={user} onLogout={handleLogout}>
-                {isAdmin ? <AdminHome user={user} /> : <Dashboard role={role} permissions={[]} />}
+                <Layout role={role} user={user} onLogout={handleLogout}>
+                {isAdmin ? <AdminHome user={user} /> : <Dashboard role={role} user={user} permissions={[]} />}
               </Layout>
             ) : (
               <Navigate to="/login" />
@@ -189,12 +187,50 @@ export default function App() {
         />
 
         <Route
+          path="/assignments"
+          element={
+            isAuthenticated ? (
+              isAdmin || isFacultyCoordinator ? (
+                <Layout role={role} user={user} onLogout={handleLogout}>
+                  <FacultyAssignments />
+                </Layout>
+              ) : (
+                <Navigate to="/home" />
+              )
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
+        />
+
+        <Route
+          path="/faculty/student-panel"
+          element={
+            isAuthenticated ? (
+              isFaculty || isFacultyCoordinator ? (
+                <Layout role={role} user={user} onLogout={handleLogout}>
+                  <StudentPanelConfig role={role} />
+                </Layout>
+              ) : (
+                <Navigate to="/home" />
+              )
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
+        />
+
+        <Route
           path="/pbl-presentation"
           element={
             isAuthenticated ? (
-              <Layout role={role} user={user} onLogout={handleLogout}>
-                <PblPresentation />
-              </Layout>
+              isStudent ? (
+                <Layout role={role} user={user} onLogout={handleLogout}>
+                  <PblPresentation />
+                </Layout>
+              ) : (
+                <Navigate to="/home" />
+              )
             ) : (
               <Navigate to="/login" />
             )

@@ -65,6 +65,10 @@ export default function Profile() {
               <div className="text-sm font-semibold text-slateish-700">{profile.user.department || '-'}</div>
             </div>
             <div className="rounded-lg border border-slateish-200 bg-slateish-50 p-4">
+              <div className="text-xs text-slateish-500">Branch</div>
+              <div className="text-sm font-semibold text-slateish-700">{profile.user.branch || '-'}</div>
+            </div>
+            <div className="rounded-lg border border-slateish-200 bg-slateish-50 p-4">
               <div className="text-xs text-slateish-500">Semester</div>
               <div className="text-sm font-semibold text-slateish-700">{profile.user.semester || '-'}</div>
             </div>
@@ -72,9 +76,13 @@ export default function Profile() {
               <div className="text-xs text-slateish-500">Year of Graduation</div>
               <div className="text-sm font-semibold text-slateish-700">{profile.user.graduationYear || '-'}</div>
             </div>
-            <div className="rounded-lg border border-slateish-200 bg-slateish-50 p-4 sm:col-span-2">
-              <div className="text-xs text-slateish-500">Contact Details</div>
-              <div className="text-sm font-semibold text-slateish-700">{profile.user.contact || '-'}</div>
+            <div className="rounded-lg border border-slateish-200 bg-slateish-50 p-4">
+              <div className="text-xs text-slateish-500">Email</div>
+              <div className="text-sm font-semibold text-slateish-700">{profile.user.email || '-'}</div>
+            </div>
+            <div className="rounded-lg border border-slateish-200 bg-slateish-50 p-4">
+              <div className="text-xs text-slateish-500">Phone</div>
+              <div className="text-sm font-semibold text-slateish-700">{profile.user.phone || '-'}</div>
             </div>
           </div>
         )}

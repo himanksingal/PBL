@@ -3,11 +3,15 @@ import { Button } from '../components/ui/button.jsx'
 import { Card } from '../components/ui/card.jsx'
 import { Checkbox } from '../components/ui/checkbox.jsx'
 import { Input } from '../components/ui/input.jsx'
-import { Select } from '../components/ui/select.jsx'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select.jsx'
 import { Spinner } from '../components/ui/spinner.jsx'
 import { Table, TableCell, TableHead, TableRow } from '../components/ui/table.jsx'
-
-const roleOptions = ['Student', 'Faculty Coordinator', 'Master Admin']
 
 const initialForm = {
   id: '',
@@ -18,6 +22,8 @@ const initialForm = {
   password: '',
   forcePasswordReset: true,
   department: '',
+  branch: '',
+  assignedFacultyRegistrationNumber: '',
   semester: '',
   graduationYear: '',
   email: '',
@@ -32,22 +38,51 @@ export default function AdminManageUsers() {
     search: '',
     semester: '',
     graduationYear: '',
-    role: '',
+    department: '',
+    branch: '',
+    role: 'all',
     sortBy: 'name',
     sortOrder: 'asc',
   })
+  const [pagination, setPagination] = useState({ page: 1, pageSize: 10, total: 0, totalPages: 1 })
   const [loading, setLoading] = useState(false)
   const [searching, setSearching] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [enums, setEnums] = useState({
+    roles: { options: ['Student', 'Faculty', 'Faculty Coordinator', 'Master Admin'] },
+    authSources: { options: ['local', 'keycloak'] },
+    departments: { options: [] },
+    branches: { options: [] },
+    semesters: { options: [] },
+    graduationYears: { options: [] },
+  })
 
   const queryString = useMemo(() => {
     const params = new URLSearchParams()
     Object.entries(filters).forEach(([key, value]) => {
-      if (value) params.set(key, value)
+      if (value && !(key === 'role' && value === 'all')) params.set(key, value)
     })
+    params.set('page', String(pagination.page))
+    params.set('pageSize', String(pagination.pageSize))
     return params.toString()
-  }, [filters])
+  }, [filters, pagination.page, pagination.pageSize])
+
+  const loadEnums = async () => {
+    try {
+      const response = await fetch('/api/meta/enums', { credentials: 'include' })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || 'Unable to load enums')
+      setEnums(data.enums || {})
+      setForm((prev) => ({
+        ...prev,
+        role: data.enums?.roles?.options?.[0] || prev.role,
+        authSource: data.enums?.authSources?.options?.[0] || prev.authSource,
+      }))
+    } catch {
+      // fallback is already set in initial state
+    }
+  }
 
   const loadUsers = async (query) => {
     setLoading(true)
@@ -57,6 +92,11 @@ export default function AdminManageUsers() {
       const data = await response.json()
       if (!response.ok) throw new Error(data.error || 'Unable to load users')
       setUsers(data.users || [])
+      setPagination((prev) => ({
+        ...prev,
+        total: data.pagination?.total || 0,
+        totalPages: data.pagination?.totalPages || 1,
+      }))
     } catch (err) {
       setError(err.message)
     } finally {
@@ -75,6 +115,8 @@ export default function AdminManageUsers() {
       semester: form.semester || null,
       graduationYear: form.graduationYear || null,
       department: form.department || null,
+      branch: form.branch || null,
+      assignedFacultyRegistrationNumber: form.assignedFacultyRegistrationNumber || null,
       email: form.email || null,
       phone: form.phone || null,
     }
@@ -99,23 +141,25 @@ export default function AdminManageUsers() {
     }
 
     setSuccess(editingId ? 'User updated.' : 'User created.')
-    setForm(initialForm)
+    setForm({ ...initialForm, role: enums?.roles?.options?.[0] || 'Student', authSource: enums?.authSources?.options?.[0] || 'local' })
     setEditingId('')
     setSearching(true)
     await loadUsers(queryString)
   }
 
   const onEdit = (user) => {
-    setEditingId(user.id)
+    setEditingId(user.internalId || user.id)
     setForm({
       id: user.id,
       name: user.name || '',
-      role: user.role || 'Student',
-      authSource: user.authSource || 'local',
+      role: user.role || (enums?.roles?.options?.[0] || 'Student'),
+      authSource: user.authSource || (enums?.authSources?.options?.[0] || 'local'),
       username: user.username || '',
       password: '',
       forcePasswordReset: Boolean(user.mustResetPassword),
       department: user.department || '',
+      branch: user.branch || '',
+      assignedFacultyRegistrationNumber: user.assignedFacultyRegistrationNumber || '',
       semester: user.semester || '',
       graduationYear: user.graduationYear || '',
       email: user.email || '',
@@ -144,13 +188,24 @@ export default function AdminManageUsers() {
   }
 
   useEffect(() => {
+    loadEnums()
+  }, [])
+
+  useEffect(() => {
     setSearching(true)
     const timer = setTimeout(() => {
       loadUsers(queryString)
-    }, 1000)
+    }, 400)
 
     return () => clearTimeout(timer)
   }, [queryString])
+
+  const roleOptions = enums?.roles?.options || []
+  const authSourceOptions = enums?.authSources?.options || []
+  const departmentOptions = enums?.departments?.options || []
+  const branchOptions = enums?.branches?.options || []
+  const semesterOptions = enums?.semesters?.options || []
+  const graduationYearOptions = enums?.graduationYears?.options || []
 
   return (
     <div className="space-y-6 px-6 py-4">
@@ -159,7 +214,7 @@ export default function AdminManageUsers() {
 
         <form className="mt-4 grid gap-3 md:grid-cols-4" onSubmit={onSubmit}>
           <Input
-            placeholder="User ID"
+            placeholder="Registration Number"
             value={form.id}
             onChange={(e) => setForm((prev) => ({ ...prev, id: e.target.value }))}
             disabled={Boolean(editingId)}
@@ -173,22 +228,33 @@ export default function AdminManageUsers() {
           />
           <Select
             value={form.role}
-            onChange={(e) => setForm((prev) => ({ ...prev, role: e.target.value }))}
-            required
+            onValueChange={(value) => setForm((prev) => ({ ...prev, role: value }))}
           >
-            {roleOptions.map((role) => (
-              <option key={role} value={role}>
-                {role}
-              </option>
-            ))}
+            <SelectTrigger className="h-11 border-slateish-200">
+              <SelectValue placeholder="Select role" />
+            </SelectTrigger>
+            <SelectContent>
+              {roleOptions.map((role) => (
+                <SelectItem key={role} value={role}>
+                  {role}
+                </SelectItem>
+              ))}
+            </SelectContent>
           </Select>
           <Select
             value={form.authSource}
-            onChange={(e) => setForm((prev) => ({ ...prev, authSource: e.target.value }))}
-            required
+            onValueChange={(value) => setForm((prev) => ({ ...prev, authSource: value }))}
           >
-            <option value="local">Local (Mongo)</option>
-            <option value="keycloak">Keycloak</option>
+            <SelectTrigger className="h-11 border-slateish-200">
+              <SelectValue placeholder="Select auth source" />
+            </SelectTrigger>
+            <SelectContent>
+              {authSourceOptions.map((source) => (
+                <SelectItem key={source} value={source}>
+                  {source === 'local' ? 'Local (Mongo)' : 'Keycloak'}
+                </SelectItem>
+              ))}
+            </SelectContent>
           </Select>
           <Input
             placeholder="Username (local auth)"
@@ -208,26 +274,76 @@ export default function AdminManageUsers() {
           <label className="flex items-center gap-2 rounded-md border border-slateish-200 px-3 py-2 text-sm text-slateish-600">
             <Checkbox
               checked={Boolean(form.forcePasswordReset)}
-              onChange={(e) => setForm((prev) => ({ ...prev, forcePasswordReset: e.target.checked }))}
+              onCheckedChange={(checked) =>
+                setForm((prev) => ({ ...prev, forcePasswordReset: Boolean(checked) }))
+              }
               disabled={form.authSource !== 'local'}
             />
             Force password reset on next login
           </label>
+          <Select
+            value={form.department || '__empty__'}
+            onValueChange={(value) => setForm((prev) => ({ ...prev, department: value === '__empty__' ? '' : value }))}
+          >
+            <SelectTrigger className="h-11 border-slateish-200">
+              <SelectValue placeholder="Department" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__empty__">None</SelectItem>
+              {departmentOptions.map((option) => (
+                <SelectItem key={option} value={option}>{option}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select
+            value={form.branch || '__empty__'}
+            onValueChange={(value) => setForm((prev) => ({ ...prev, branch: value === '__empty__' ? '' : value }))}
+          >
+            <SelectTrigger className="h-11 border-slateish-200">
+              <SelectValue placeholder="Branch" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__empty__">None</SelectItem>
+              {branchOptions.map((option) => (
+                <SelectItem key={option} value={option}>{option}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Input
-            placeholder="Department"
-            value={form.department}
-            onChange={(e) => setForm((prev) => ({ ...prev, department: e.target.value }))}
+            placeholder="Assigned Faculty Registration No. (students)"
+            value={form.assignedFacultyRegistrationNumber}
+            onChange={(e) =>
+              setForm((prev) => ({ ...prev, assignedFacultyRegistrationNumber: e.target.value }))
+            }
           />
-          <Input
-            placeholder="Semester"
-            value={form.semester}
-            onChange={(e) => setForm((prev) => ({ ...prev, semester: e.target.value }))}
-          />
-          <Input
-            placeholder="Graduation Year"
-            value={form.graduationYear}
-            onChange={(e) => setForm((prev) => ({ ...prev, graduationYear: e.target.value }))}
-          />
+          <Select
+            value={form.semester || '__empty__'}
+            onValueChange={(value) => setForm((prev) => ({ ...prev, semester: value === '__empty__' ? '' : value }))}
+          >
+            <SelectTrigger className="h-11 border-slateish-200">
+              <SelectValue placeholder="Semester" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__empty__">None</SelectItem>
+              {semesterOptions.map((option) => (
+                <SelectItem key={option} value={option}>{option}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select
+            value={form.graduationYear || '__empty__'}
+            onValueChange={(value) => setForm((prev) => ({ ...prev, graduationYear: value === '__empty__' ? '' : value }))}
+          >
+            <SelectTrigger className="h-11 border-slateish-200">
+              <SelectValue placeholder="Graduation Year" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__empty__">None</SelectItem>
+              {graduationYearOptions.map((option) => (
+                <SelectItem key={option} value={option}>{option}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Input
             type="email"
             placeholder="Email"
@@ -240,16 +356,14 @@ export default function AdminManageUsers() {
             onChange={(e) => setForm((prev) => ({ ...prev, phone: e.target.value }))}
           />
           <div className="md:col-span-4 flex gap-3">
-            <Button type="submit">
-              {editingId ? 'Update User' : 'Add User'}
-            </Button>
+            <Button type="submit">{editingId ? 'Update User' : 'Add User'}</Button>
             {editingId && (
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => {
                   setEditingId('')
-                  setForm(initialForm)
+                  setForm({ ...initialForm, role: roleOptions[0] || 'Student', authSource: authSourceOptions[0] || 'local' })
                 }}
               >
                 Cancel Edit
@@ -265,45 +379,72 @@ export default function AdminManageUsers() {
             className="md:col-span-2"
             placeholder="Search by name/id/department..."
             value={filters.search}
-            onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))}
-          />
-          <Input
-            placeholder="Semester"
-            value={filters.semester}
-            onChange={(e) => setFilters((prev) => ({ ...prev, semester: e.target.value }))}
-          />
-          <Input
-            placeholder="Year"
-            value={filters.graduationYear}
-            onChange={(e) => setFilters((prev) => ({ ...prev, graduationYear: e.target.value }))}
+            onChange={(e) => {
+              setPagination((prev) => ({ ...prev, page: 1 }))
+              setFilters((prev) => ({ ...prev, search: e.target.value }))
+            }}
           />
           <Select
-            value={filters.sortBy}
-            onChange={(e) => setFilters((prev) => ({ ...prev, sortBy: e.target.value }))}
+            value={filters.semester || '__all__'}
+            onValueChange={(value) => {
+              setPagination((prev) => ({ ...prev, page: 1 }))
+              setFilters((prev) => ({ ...prev, semester: value === '__all__' ? '' : value }))
+            }}
           >
-            <option value="name">Sort: Name</option>
-            <option value="semester">Sort: Semester</option>
-            <option value="graduationYear">Sort: Year</option>
-            <option value="role">Sort: Role</option>
-            <option value="externalId">Sort: ID</option>
+            <SelectTrigger className="h-11 border-slateish-200"><SelectValue placeholder="Semester" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">All Semesters</SelectItem>
+              {semesterOptions.map((option) => <SelectItem key={option} value={option}>{option}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select
+            value={filters.graduationYear || '__all__'}
+            onValueChange={(value) => {
+              setPagination((prev) => ({ ...prev, page: 1 }))
+              setFilters((prev) => ({ ...prev, graduationYear: value === '__all__' ? '' : value }))
+            }}
+          >
+            <SelectTrigger className="h-11 border-slateish-200"><SelectValue placeholder="Year" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">All Years</SelectItem>
+              {graduationYearOptions.map((option) => <SelectItem key={option} value={option}>{option}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select
+            value={filters.sortBy}
+            onValueChange={(value) => setFilters((prev) => ({ ...prev, sortBy: value }))}
+          >
+            <SelectTrigger className="h-11 border-slateish-200"><SelectValue placeholder="Sort by" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="name">Sort: Name</SelectItem>
+              <SelectItem value="semester">Sort: Semester</SelectItem>
+              <SelectItem value="graduationYear">Sort: Year</SelectItem>
+              <SelectItem value="role">Sort: Role</SelectItem>
+              <SelectItem value="registrationNumber">Sort: ID</SelectItem>
+            </SelectContent>
           </Select>
           <Select
             value={filters.sortOrder}
-            onChange={(e) => setFilters((prev) => ({ ...prev, sortOrder: e.target.value }))}
+            onValueChange={(value) => setFilters((prev) => ({ ...prev, sortOrder: value }))}
           >
-            <option value="asc">Asc</option>
-            <option value="desc">Desc</option>
+            <SelectTrigger className="h-11 border-slateish-200"><SelectValue placeholder="Sort order" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="asc">Asc</SelectItem>
+              <SelectItem value="desc">Desc</SelectItem>
+            </SelectContent>
           </Select>
           <Select
             value={filters.role}
-            onChange={(e) => setFilters((prev) => ({ ...prev, role: e.target.value }))}
+            onValueChange={(value) => {
+              setPagination((prev) => ({ ...prev, page: 1 }))
+              setFilters((prev) => ({ ...prev, role: value }))
+            }}
           >
-            <option value="">All Roles</option>
-            {roleOptions.map((role) => (
-              <option key={role} value={role}>
-                {role}
-              </option>
-            ))}
+            <SelectTrigger className="h-11 border-slateish-200"><SelectValue placeholder="All Roles" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Roles</SelectItem>
+              {roleOptions.map((role) => <SelectItem key={role} value={role}>{role}</SelectItem>)}
+            </SelectContent>
           </Select>
         </div>
 
@@ -330,12 +471,15 @@ export default function AdminManageUsers() {
                 <TableHead>Semester</TableHead>
                 <TableHead>Year</TableHead>
                 <TableHead>Department</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Phone</TableHead>
+                <TableHead>Assigned Faculty</TableHead>
                 <TableHead>Actions</TableHead>
               </tr>
             </thead>
             <tbody>
               {users.map((user) => (
-                <TableRow key={user.id}>
+                <TableRow key={user.internalId || user.id}>
                   <TableCell>{user.id}</TableCell>
                   <TableCell>{user.name}</TableCell>
                   <TableCell>{user.role}</TableCell>
@@ -345,18 +489,13 @@ export default function AdminManageUsers() {
                   <TableCell>{user.semester || '-'}</TableCell>
                   <TableCell>{user.graduationYear || '-'}</TableCell>
                   <TableCell>{user.department || '-'}</TableCell>
+                  <TableCell>{user.email || '-'}</TableCell>
+                  <TableCell>{user.phone || '-'}</TableCell>
+                  <TableCell>{user.assignedFacultyRegistrationNumber || '-'}</TableCell>
                   <TableCell>
                     <div className="flex gap-2">
-                      <Button
-                        variant="subtle"
-                        onClick={() => onEdit(user)}
-                      >
-                        Edit
-                      </Button>
-                      <Button
-                        variant="destructive"
-                        onClick={() => onDelete(user.id)}
-                      >
+                      <Button variant="subtle" onClick={() => onEdit(user)}>Edit</Button>
+                      <Button variant="destructive" onClick={() => onDelete(user.internalId || user.id)}>
                         Delete
                       </Button>
                     </div>
@@ -365,13 +504,37 @@ export default function AdminManageUsers() {
               ))}
               {users.length === 0 && !loading && !searching && (
                 <tr>
-                  <TableCell colSpan={10} className="py-4 text-center text-slateish-500">
+                  <TableCell colSpan={13} className="py-4 text-center text-slateish-500">
                     No users found.
                   </TableCell>
                 </tr>
               )}
             </tbody>
           </Table>
+        </div>
+
+        <div className="mt-4 flex items-center justify-between text-sm text-slateish-600">
+          <div>
+            Page {pagination.page} of {pagination.totalPages} • Total {pagination.total}
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setPagination((prev) => ({ ...prev, page: Math.max(1, prev.page - 1) }))}
+              disabled={pagination.page <= 1}
+            >
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() =>
+                setPagination((prev) => ({ ...prev, page: Math.min(prev.totalPages, prev.page + 1) }))
+              }
+              disabled={pagination.page >= pagination.totalPages}
+            >
+              Next
+            </Button>
+          </div>
         </div>
       </Card>
     </div>

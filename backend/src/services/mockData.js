@@ -1,7 +1,8 @@
-export const roles = ['Student', 'Faculty Coordinator', 'Master Admin']
+export const roles = ['Student', 'Faculty', 'Faculty Coordinator', 'Master Admin']
 
 export const rolePermissions = {
   Student: ['view-project', 'submit-update', 'view-assessments'],
+  Faculty: ['view-student', 'remark'],
   'Faculty Coordinator': [
     'assign-guide',
     'assign-project',
@@ -32,9 +33,9 @@ export const localAuthUsers = [
       email: 'student.demo@muj.manipal.edu',
       phone: '+91-9876543210',
       department: 'DOCSE',
+      branch: 'Computer Science & Engineering',
       semester: 'VI',
       graduationYear: '2027',
-      contact: 'student.demo@muj.manipal.edu | +91-9876543210',
       role: 'Student',
     },
   },
@@ -47,11 +48,9 @@ export const localAuthUsers = [
       email: 'faculty.coordinator@muj.manipal.edu',
       phone: '+91-9000000110',
       department: 'DOCSE',
+      branch: 'Computer Science & Engineering',
       semester: '-',
       graduationYear: '-',
-      contact: 'faculty.coordinator@muj.manipal.edu | +91-9000000110',
-      isMainCoordinator: false,
-      mainCoordinatorAssignedBy: 'ADMIN-0001',
       role: 'Faculty Coordinator',
     },
   },
@@ -64,9 +63,9 @@ export const localAuthUsers = [
       email: 'admin@muj.manipal.edu',
       phone: '+91-9000000001',
       department: 'Academic Office',
+      branch: 'Administration',
       semester: '-',
       graduationYear: '-',
-      contact: 'admin@muj.manipal.edu | +91-9000000001',
       role: 'Master Admin',
     },
   },

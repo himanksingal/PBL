@@ -20,6 +20,7 @@ function mapKeycloakRole(claims) {
   const roleList = claims?.realm_access?.roles || []
   if (roleList.includes('master-admin')) return 'Master Admin'
   if (roleList.includes('faculty-coordinator')) return 'Faculty Coordinator'
+  if (roleList.includes('faculty')) return 'Faculty'
   return 'Student'
 }
 
@@ -45,17 +46,17 @@ function setKeycloakIdTokenCookie(res, idToken) {
 
 function toUserPayload(profile) {
   return {
-    id: profile.externalId,
+    id: profile.registrationNumber || profile.externalId,
+    internalId: profile.externalId,
+    registrationNumber: profile.registrationNumber || profile.externalId,
     role: profile.role,
     name: profile.name,
     email: profile.email || null,
     phone: profile.phone || null,
     department: profile.department || null,
+    branch: profile.branch || null,
     semester: profile.semester || null,
     graduationYear: profile.graduationYear || null,
-    contact: profile.contact || null,
-    isMainCoordinator: profile.isMainCoordinator || false,
-    mainCoordinatorAssignedBy: profile.mainCoordinatorAssignedBy || null,
   }
 }
 
@@ -68,15 +69,14 @@ async function upsertUserProfile(user, authSource) {
       authSource,
       role: user.role,
       externalId: user.id,
+      registrationNumber: user.registrationNumber || user.id,
       name: user.name,
       email: user.email || null,
       phone: user.phone || null,
       department: user.department || null,
+      branch: user.branch || null,
       semester: user.semester || null,
       graduationYear: user.graduationYear || null,
-      contact: user.contact || null,
-      isMainCoordinator: user.isMainCoordinator || false,
-      mainCoordinatorAssignedBy: user.mainCoordinatorAssignedBy || null,
     },
     { upsert: true, new: true, setDefaultsOnInsert: true }
   ).lean()
@@ -134,7 +134,8 @@ export async function login(req, res) {
   const token = issueToken({
     role: user.role,
     source: 'local',
-    id: user.id,
+    id: profile.externalId,
+    registrationNumber: user.registrationNumber,
     name: user.name,
     email: user.email,
     department: user.department,
@@ -192,7 +193,8 @@ export async function resetFirstLoginPassword(req, res) {
   const token = issueToken({
     role: user.role,
     source: 'local',
-    id: user.id,
+    id: profile.externalId,
+    registrationNumber: user.registrationNumber,
     name: user.name,
     email: user.email,
     department: user.department,
@@ -238,12 +240,14 @@ export async function keycloakCallback(req, res) {
     const role = mapKeycloakRole(claims)
     const user = {
       id: claims.sub,
+      registrationNumber:
+        claims.registration_number || claims.registrationNumber || claims.preferred_username || claims.sub,
       role,
       name: claims.name || claims.preferred_username || 'User',
       email: claims.email || null,
       phone: claims.phone_number || null,
-      contact: [claims.email, claims.phone_number].filter(Boolean).join(' | ') || null,
       department: claims.department || null,
+      branch: claims.branch || null,
       semester: claims.semester || null,
       graduationYear: claims.graduationYear || null,
     }
@@ -253,7 +257,8 @@ export async function keycloakCallback(req, res) {
     const appToken = issueToken({
       role,
       source: 'keycloak',
-      id: profile.id,
+      id: profile.internalId || profile.id,
+      registrationNumber: profile.registrationNumber || profile.id,
       name: profile.name,
       email: profile.email,
       department: profile.department,

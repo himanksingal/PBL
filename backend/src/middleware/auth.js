@@ -17,16 +17,16 @@ export async function authenticate(req, res, next) {
     if (profile) {
       req.user = {
         id: profile.externalId,
+        registrationNumber: profile.registrationNumber || profile.externalId,
         name: profile.name,
         role: profile.role,
         email: profile.email,
         phone: profile.phone,
         department: profile.department,
+        branch: profile.branch || null,
         semester: profile.semester,
         graduationYear: profile.graduationYear,
-        contact: profile.contact,
-        isMainCoordinator: profile.isMainCoordinator || false,
-        mainCoordinatorAssignedBy: profile.mainCoordinatorAssignedBy || null,
+        assignedFacultyRegistrationNumber: profile.assignedFacultyRegistrationNumber || null,
       }
       return next()
     }
@@ -35,16 +35,16 @@ export async function authenticate(req, res, next) {
   if (decoded.id && decoded.name) {
     req.user = {
       id: decoded.id,
+      registrationNumber: decoded.registrationNumber || decoded.id,
       name: decoded.name,
       role: decoded.role,
       email: decoded.email || null,
       phone: null,
       department: decoded.department || null,
+      branch: decoded.branch || null,
       semester: null,
       graduationYear: null,
-      contact: decoded.email || null,
-      isMainCoordinator: false,
-      mainCoordinatorAssignedBy: null,
+      assignedFacultyRegistrationNumber: null,
     }
     return next()
   }

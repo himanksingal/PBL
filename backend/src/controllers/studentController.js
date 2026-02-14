@@ -2,6 +2,7 @@ import path from 'node:path'
 import { findExaminerByGuide } from '../services/studentData.js'
 import { PblSubmission } from '../models/PblSubmission.js'
 import { isDatabaseConnected } from '../config/db.js'
+import { UserProfile } from '../models/UserProfile.js'
 
 function isValidUrl(value) {
   try {
@@ -19,6 +20,15 @@ function isDateRangeValid(startDate, endDate) {
   return !Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime()) && start <= end
 }
 
+function buildSubmissionStatus(attemptCount) {
+  return {
+    attemptCount,
+    canSubmit: attemptCount < 2,
+    canResubmit: attemptCount === 1,
+    isLocked: attemptCount >= 2,
+  }
+}
+
 export function getExaminerByGuide(req, res) {
   const guideName = req.query.guideName || ''
   const result = findExaminerByGuide(guideName)
@@ -30,10 +40,34 @@ export function getExaminerByGuide(req, res) {
   return res.json(result)
 }
 
+export async function getMySubmissionStatus(req, res) {
+  if (!isDatabaseConnected()) {
+    return res.status(503).json({ error: 'Database is not connected. Configure MongoDB Atlas first.' })
+  }
+
+  const submittedBy = req.user.registrationNumber || req.user.id
+  const [attemptCount, latestSubmission] = await Promise.all([
+    PblSubmission.countDocuments({ submittedBy }),
+    PblSubmission.findOne({ submittedBy }).sort({ createdAt: -1 }).lean(),
+  ])
+
+  return res.json({
+    ...buildSubmissionStatus(attemptCount),
+    latestSubmission,
+  })
+}
+
 export async function submitPblPresentation(req, res) {
   if (!isDatabaseConnected()) {
     return res.status(503).json({ error: 'Database is not connected. Configure MongoDB Atlas first.' })
   }
+
+  const submittedBy = req.user.registrationNumber || req.user.id
+  const attemptCount = await PblSubmission.countDocuments({ submittedBy })
+  if (attemptCount >= 2) {
+    return res.status(403).json({ error: 'Submission locked. You have already used both attempts.' })
+  }
+
   const {
     submissionType,
     registrationId,
@@ -79,14 +113,19 @@ export async function submitPblPresentation(req, res) {
       return res.status(400).json({ error: 'Invalid internship duration.' })
     }
 
-    if (!req.file) {
+    if (!req.file && attemptCount === 0) {
       return res.status(400).json({ error: 'Offer letter PDF is required for internship.' })
     }
   }
 
+  const previous =
+    attemptCount > 0
+      ? await PblSubmission.findOne({ submittedBy }).sort({ createdAt: -1 }).lean()
+      : null
+
   const offerLetterPath = req.file
     ? path.join('uploads', 'offer-letters', req.file.filename).replaceAll('\\', '/')
-    : null
+    : previous?.offerLetterPath || null
 
   const record = await PblSubmission.create({
     submissionType,
@@ -101,11 +140,47 @@ export async function submitPblPresentation(req, res) {
     internshipStartDate: submissionType === 'internship' ? internshipStartDate : null,
     internshipEndDate: submissionType === 'internship' ? internshipEndDate : null,
     offerLetterPath,
-    submittedBy: req.user.id,
+    submittedBy,
     submittedByRole: req.user.role,
+    attemptNumber: attemptCount + 1,
   })
 
-  return res.status(201).json({ message: 'PBL presentation submitted.', record })
+  return res.status(201).json({
+    message: attemptCount === 0 ? 'PBL presentation submitted.' : 'PBL presentation resubmitted.',
+    record,
+    ...buildSubmissionStatus(attemptCount + 1),
+  })
+}
+
+export async function getAssignedFacultyForStudent(req, res) {
+  if (!isDatabaseConnected()) {
+    return res.status(503).json({ error: 'Database is not connected. Configure MongoDB Atlas first.' })
+  }
+
+  const assignedFacultyRegistrationNumber = req.user.assignedFacultyRegistrationNumber || null
+
+  if (!assignedFacultyRegistrationNumber) {
+    return res.json({ assignedFaculty: null })
+  }
+
+  const faculty = await UserProfile.findOne({
+    registrationNumber: assignedFacultyRegistrationNumber,
+    role: { $in: ['Faculty', 'Faculty Coordinator'] },
+  }).lean()
+
+  if (!faculty) {
+    return res.json({ assignedFaculty: null })
+  }
+
+  return res.json({
+    assignedFaculty: {
+      name: faculty.name,
+      registrationNumber: faculty.registrationNumber,
+      email: faculty.email || null,
+      phone: faculty.phone || null,
+      department: faculty.department || null,
+    },
+  })
 }
 
 function quoteCsv(value) {
@@ -116,6 +191,7 @@ export async function exportPblPresentations(req, res) {
   if (!isDatabaseConnected()) {
     return res.status(503).json({ error: 'Database is not connected. Configure MongoDB Atlas first.' })
   }
+
   const rows = await PblSubmission.find().sort({ createdAt: -1 }).lean()
   const headers = [
     'submissionType',
@@ -132,6 +208,7 @@ export async function exportPblPresentations(req, res) {
     'offerLetterPath',
     'submittedBy',
     'submittedByRole',
+    'attemptNumber',
     'createdAt',
   ]
 

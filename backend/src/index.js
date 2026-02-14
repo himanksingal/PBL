@@ -11,6 +11,9 @@ import profileRoutes from './routes/profileRoutes.js'
 import healthRoutes from './routes/healthRoutes.js'
 import studentRoutes from './routes/studentRoutes.js'
 import adminRoutes from './routes/adminRoutes.js'
+import facultyRoutes from './routes/facultyRoutes.js'
+import assignmentRoutes from './routes/assignmentRoutes.js'
+import metaRoutes from './routes/metaRoutes.js'
 
 const app = express()
 
@@ -37,6 +40,9 @@ app.use('/api/auth', authRoutes)
 app.use('/api/profile', profileRoutes)
 app.use('/api/student', studentRoutes)
 app.use('/api/admin', adminRoutes)
+app.use('/api/faculty', facultyRoutes)
+app.use('/api/assignments', assignmentRoutes)
+app.use('/api/meta', metaRoutes)
 
 app.use((error, req, res, next) => {
   if (error) {

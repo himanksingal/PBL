@@ -8,6 +8,24 @@ export async function ensureBootstrapAdmin() {
   if (!isDatabaseConnected()) return
   if (!env.bootstrapAdminUsername || !env.bootstrapAdminPassword) return
 
+  await UserProfile.updateMany(
+    {
+      $or: [{ registrationNumber: { $exists: false } }, { registrationNumber: null }, { registrationNumber: '' }],
+    },
+    [{ $set: { registrationNumber: '$externalId' } }]
+  )
+  await UserProfile.updateMany(
+    {},
+    {
+      $unset: {
+        contact: '',
+        assignedFacultyId: '',
+        isMainCoordinator: '',
+        mainCoordinatorAssignedBy: '',
+      },
+    }
+  )
+
   const existingCredential = await LocalCredential.findOne({
     username: env.bootstrapAdminUsername,
   }).lean()
@@ -21,14 +39,15 @@ export async function ensureBootstrapAdmin() {
       authSource: 'local',
       role: 'Master Admin',
       externalId,
+      registrationNumber: externalId,
       name: env.bootstrapAdminName || 'Master Admin',
       email: env.bootstrapAdminEmail || null,
       phone: env.bootstrapAdminPhone || null,
       department: 'Administration',
+      branch: null,
       semester: null,
       graduationYear: null,
-      contact:
-        [env.bootstrapAdminEmail, env.bootstrapAdminPhone].filter(Boolean).join(' | ') || null,
+      assignedFacultyRegistrationNumber: null,
     },
     { upsert: true, new: true, setDefaultsOnInsert: true }
   )

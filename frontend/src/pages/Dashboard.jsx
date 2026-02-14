@@ -1,6 +1,7 @@
 import React from 'react'
 import PermissionCard from '../components/PermissionCard.jsx'
 import StudentDashboard from './StudentDashboard.jsx'
+import FacultyDashboard from './FacultyDashboard.jsx'
 
 const events = [
   'Weekly Review - Minor Project (Sem 4)',
@@ -111,9 +112,13 @@ function CoordinatorDashboard({ role, permissions }) {
   )
 }
 
-export default function Dashboard({ role, permissions }) {
+export default function Dashboard({ role, permissions, user }) {
   if (role === 'Student') {
     return <StudentDashboard />
+  }
+
+  if (role === 'Faculty' || role === 'Faculty Coordinator') {
+    return <FacultyDashboard role={role} user={user} />
   }
 
   return <CoordinatorDashboard role={role} permissions={permissions} />

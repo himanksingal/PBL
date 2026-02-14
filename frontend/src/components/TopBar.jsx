@@ -7,7 +7,9 @@ export default function TopBar({ user, onLogout }) {
     <header className="border-b border-slateish-200 bg-white px-5 py-3">
       <div className="flex w-full items-center gap-4">
         <div className="flex min-w-0 items-center gap-4">
-          <BrandLogo wordmark />
+          <Link to="/home" aria-label="Go to home" className="inline-flex">
+            <BrandLogo wordmark />
+          </Link>
         </div>
 
         <div className="mx-auto hidden w-full max-w-[620px] xl:block">
