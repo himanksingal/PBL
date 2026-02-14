@@ -14,6 +14,8 @@ const LocalCredentialSchema = new mongoose.Schema(
     userExternalId: { type: String, required: false },
     username: { type: String, required: true, unique: true, index: true },
     passwordHash: { type: String, required: true },
+    mustResetPassword: { type: Boolean, default: true },
+    passwordUpdatedAt: { type: Date, default: Date.now },
   },
   { timestamps: true }
 )

@@ -9,6 +9,7 @@ const initialForm = {
   authSource: 'local',
   username: '',
   password: '',
+  forcePasswordReset: true,
   department: '',
   semester: '',
   graduationYear: '',
@@ -29,6 +30,7 @@ export default function AdminManageUsers() {
     sortOrder: 'asc',
   })
   const [loading, setLoading] = useState(false)
+  const [searching, setSearching] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
 
@@ -40,11 +42,11 @@ export default function AdminManageUsers() {
     return params.toString()
   }, [filters])
 
-  const loadUsers = async () => {
+  const loadUsers = async (query) => {
     setLoading(true)
     setError('')
     try {
-      const response = await fetch(`/api/admin/users?${queryString}`, { credentials: 'include' })
+      const response = await fetch(`/api/admin/users?${query}`, { credentials: 'include' })
       const data = await response.json()
       if (!response.ok) throw new Error(data.error || 'Unable to load users')
       setUsers(data.users || [])
@@ -52,6 +54,7 @@ export default function AdminManageUsers() {
       setError(err.message)
     } finally {
       setLoading(false)
+      setSearching(false)
     }
   }
 
@@ -91,7 +94,8 @@ export default function AdminManageUsers() {
     setSuccess(editingId ? 'User updated.' : 'User created.')
     setForm(initialForm)
     setEditingId('')
-    await loadUsers()
+    setSearching(true)
+    await loadUsers(queryString)
   }
 
   const onEdit = (user) => {
@@ -103,6 +107,7 @@ export default function AdminManageUsers() {
       authSource: user.authSource || 'local',
       username: user.username || '',
       password: '',
+      forcePasswordReset: Boolean(user.mustResetPassword),
       department: user.department || '',
       semester: user.semester || '',
       graduationYear: user.graduationYear || '',
@@ -127,11 +132,17 @@ export default function AdminManageUsers() {
     }
 
     setSuccess('User deleted.')
-    await loadUsers()
+    setSearching(true)
+    await loadUsers(queryString)
   }
 
   useEffect(() => {
-    loadUsers()
+    setSearching(true)
+    const timer = setTimeout(() => {
+      loadUsers(queryString)
+    }, 1000)
+
+    return () => clearTimeout(timer)
   }, [queryString])
 
   return (
@@ -187,12 +198,21 @@ export default function AdminManageUsers() {
           <input
             className="shadcn-input"
             type="password"
-            placeholder={editingId ? 'New Password (optional)' : 'Password (min 8 chars)'}
+            placeholder={editingId ? 'New Password (optional)' : 'Temporary Password (min 8 chars)'}
             value={form.password}
             onChange={(e) => setForm((prev) => ({ ...prev, password: e.target.value }))}
             required={form.authSource === 'local' && !editingId}
             disabled={form.authSource !== 'local'}
           />
+          <label className="flex items-center gap-2 rounded-md border border-slateish-200 px-3 py-2 text-sm text-slateish-600">
+            <input
+              type="checkbox"
+              checked={Boolean(form.forcePasswordReset)}
+              onChange={(e) => setForm((prev) => ({ ...prev, forcePasswordReset: e.target.checked }))}
+              disabled={form.authSource !== 'local'}
+            />
+            Force password reset on next login
+          </label>
           <input
             className="shadcn-input"
             placeholder="Department"
@@ -297,13 +317,13 @@ export default function AdminManageUsers() {
           </select>
         </div>
 
-        <div className="mt-3 flex gap-3">
-          <button className="shadcn-button" type="button" onClick={loadUsers}>
-            Search / Refresh
-          </button>
-        </div>
+        {(searching || loading) && (
+          <div className="mt-4 flex items-center gap-2 text-sm text-slateish-500">
+            <span className="h-4 w-4 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" />
+            Searching users...
+          </div>
+        )}
 
-        {loading && <p className="mt-4 text-sm text-slateish-500">Loading users...</p>}
         {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
         {success && <p className="mt-4 text-sm text-emerald-600">{success}</p>}
 
@@ -316,6 +336,7 @@ export default function AdminManageUsers() {
                 <th className="px-3 py-2">Role</th>
                 <th className="px-3 py-2">Auth</th>
                 <th className="px-3 py-2">Username</th>
+                <th className="px-3 py-2">Reset Required</th>
                 <th className="px-3 py-2">Semester</th>
                 <th className="px-3 py-2">Year</th>
                 <th className="px-3 py-2">Department</th>
@@ -330,6 +351,7 @@ export default function AdminManageUsers() {
                   <td className="px-3 py-2">{user.role}</td>
                   <td className="px-3 py-2">{user.authSource || '-'}</td>
                   <td className="px-3 py-2">{user.username || '-'}</td>
+                  <td className="px-3 py-2">{user.mustResetPassword ? 'Yes' : 'No'}</td>
                   <td className="px-3 py-2">{user.semester || '-'}</td>
                   <td className="px-3 py-2">{user.graduationYear || '-'}</td>
                   <td className="px-3 py-2">{user.department || '-'}</td>
@@ -353,9 +375,9 @@ export default function AdminManageUsers() {
                   </td>
                 </tr>
               ))}
-              {users.length === 0 && !loading && (
+              {users.length === 0 && !loading && !searching && (
                 <tr>
-                  <td colSpan={9} className="px-3 py-4 text-center text-slateish-500">
+                  <td colSpan={10} className="px-3 py-4 text-center text-slateish-500">
                     No users found.
                   </td>
                 </tr>

@@ -1,9 +1,13 @@
 import React, { useState } from 'react'
 import BrandLogo from '../components/BrandLogo.jsx'
 
-export default function Login({ onLogin, onKeycloakLogin }) {
+export default function Login({ onLogin, onKeycloakLogin, onResetFirstLoginPassword }) {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [resetMode, setResetMode] = useState(false)
+  const [currentPasswordForReset, setCurrentPasswordForReset] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -12,8 +16,43 @@ export default function Login({ onLogin, onKeycloakLogin }) {
     setError('')
     const result = await onLogin({ username, password })
     setLoading(false)
+
+    if (result?.requiresPasswordReset) {
+      setResetMode(true)
+      setUsername(result.username || username)
+      setCurrentPasswordForReset(result.currentPassword || password)
+      setPassword('')
+      setError('First login requires password reset. Set a new password to continue.')
+      return
+    }
+
     if (!result?.ok) {
       setError(result?.error || 'Login failed')
+    }
+  }
+
+  const handleResetPassword = async () => {
+    if (!newPassword || newPassword.length < 8) {
+      setError('New password must be at least 8 characters.')
+      return
+    }
+
+    if (newPassword !== confirmPassword) {
+      setError('Passwords do not match.')
+      return
+    }
+
+    setLoading(true)
+    setError('')
+    const result = await onResetFirstLoginPassword({
+      username,
+      currentPassword: currentPasswordForReset,
+      newPassword,
+    })
+    setLoading(false)
+
+    if (!result?.ok) {
+      setError(result?.error || 'Password reset failed')
     }
   }
 
@@ -34,35 +73,85 @@ export default function Login({ onLogin, onKeycloakLogin }) {
               <BrandLogo wordmark />
             </div>
             <div className="text-sm font-semibold text-slateish-500">WELCOME TO MUJ PORTAL</div>
-            <div className="text-2xl font-semibold text-brand-600">Sign In</div>
-
-            <div className="space-y-4">
-              <input
-                className="shadcn-input"
-                placeholder="Username"
-                value={username}
-                onChange={(event) => setUsername(event.target.value)}
-              />
-              <input
-                className="shadcn-input"
-                placeholder="Password"
-                type="password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-              />
+            <div className="text-2xl font-semibold text-brand-600">
+              {resetMode ? 'Reset Password' : 'Sign In'}
             </div>
 
-            <div className="flex gap-4">
-              <button className="shadcn-button" onClick={handleLocalLogin} disabled={loading}>
-                {loading ? 'Signing In...' : 'Sign In'}
-              </button>
-              <button className="shadcn-button-outline" onClick={onKeycloakLogin}>
-                Sign In with Keycloak
-              </button>
-            </div>
+            {!resetMode ? (
+              <>
+                <div className="space-y-4">
+                  <input
+                    className="shadcn-input"
+                    placeholder="Username"
+                    value={username}
+                    onChange={(event) => setUsername(event.target.value)}
+                  />
+                  <input
+                    className="shadcn-input"
+                    placeholder="Password"
+                    type="password"
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                  />
+                </div>
+
+                <div className="flex gap-4">
+                  <button className="shadcn-button" onClick={handleLocalLogin} disabled={loading}>
+                    {loading ? 'Signing In...' : 'Sign In'}
+                  </button>
+                  <button className="shadcn-button-outline" onClick={onKeycloakLogin}>
+                    Sign In with Keycloak
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="space-y-4">
+                  <input className="shadcn-input" value={username} disabled placeholder="Username" />
+                  <input
+                    className="shadcn-input"
+                    value={currentPasswordForReset}
+                    type="password"
+                    onChange={(event) => setCurrentPasswordForReset(event.target.value)}
+                    placeholder="Current/Temporary Password"
+                  />
+                  <input
+                    className="shadcn-input"
+                    value={newPassword}
+                    type="password"
+                    onChange={(event) => setNewPassword(event.target.value)}
+                    placeholder="New Password"
+                  />
+                  <input
+                    className="shadcn-input"
+                    value={confirmPassword}
+                    type="password"
+                    onChange={(event) => setConfirmPassword(event.target.value)}
+                    placeholder="Confirm New Password"
+                  />
+                </div>
+
+                <div className="flex gap-4">
+                  <button className="shadcn-button" onClick={handleResetPassword} disabled={loading}>
+                    {loading ? 'Updating...' : 'Reset Password'}
+                  </button>
+                  <button
+                    type="button"
+                    className="shadcn-button-outline"
+                    onClick={() => {
+                      setResetMode(false)
+                      setNewPassword('')
+                      setConfirmPassword('')
+                      setError('')
+                    }}
+                  >
+                    Back to Sign In
+                  </button>
+                </div>
+              </>
+            )}
 
             {error && <p className="text-sm text-red-600">{error}</p>}
-
           </div>
           <div className="relative">
             <div className="absolute inset-0 bg-gradient-to-br from-sky-200 via-sky-100 to-amber-100" />

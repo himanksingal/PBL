@@ -28,6 +28,7 @@ function normalizeUser(document, credentialByUserId) {
     role: document.role,
     authSource: document.authSource || 'local',
     username: credential?.username || null,
+    mustResetPassword: Boolean(credential?.mustResetPassword),
     email: document.email,
     phone: document.phone,
     department: document.department,
@@ -53,6 +54,13 @@ function buildUserPayload(body, { isCreate }) {
     authSource: String(body.authSource || 'local').trim().toLowerCase(),
     username: body.username ? String(body.username).trim() : null,
     password: body.password ? String(body.password) : null,
+    forcePasswordReset:
+      body.forcePasswordReset === undefined
+        ? null
+        : body.forcePasswordReset === true ||
+          body.forcePasswordReset === 'true' ||
+          body.forcePasswordReset === 1 ||
+          body.forcePasswordReset === '1',
     email: body.email ? String(body.email).trim() : null,
     phone: body.phone ? String(body.phone).trim() : null,
     department: body.department ? String(body.department).trim() : null,
@@ -147,7 +155,7 @@ export async function listUsers(req, res) {
   const credentials = await LocalCredential.find({
     $or: [{ userId: { $in: userIds } }, { userExternalId: { $in: externalIds } }],
   })
-    .select({ userId: 1, userExternalId: 1, username: 1, _id: 0 })
+    .select({ userId: 1, userExternalId: 1, username: 1, mustResetPassword: 1, _id: 0 })
     .lean()
 
   const externalIdByMongoId = new Map(users.map((user) => [user.externalId, String(user._id)]))
@@ -206,6 +214,8 @@ export async function createUser(req, res) {
       userExternalId: created.externalId,
       username: payload.username,
       passwordHash: hashPassword(payload.password),
+      mustResetPassword: payload.forcePasswordReset ?? true,
+      passwordUpdatedAt: new Date(),
     })
   }
 
@@ -244,6 +254,9 @@ export async function updateUser(req, res) {
     const updateSet = {}
     if (payload.username) updateSet.username = payload.username
     if (payload.password) updateSet.passwordHash = hashPassword(payload.password)
+    if (payload.forcePasswordReset === true || payload.password) updateSet.mustResetPassword = true
+    if (payload.forcePasswordReset === false && !payload.password) updateSet.mustResetPassword = false
+    if (payload.password) updateSet.passwordUpdatedAt = new Date()
 
     if (existingCredential) {
       const selector = existingCredential.userId
@@ -260,6 +273,8 @@ export async function updateUser(req, res) {
         userExternalId: current.externalId,
         username: payload.username,
         passwordHash: hashPassword(payload.password || 'ChangeMe@123'),
+        mustResetPassword: payload.forcePasswordReset ?? true,
+        passwordUpdatedAt: new Date(),
       })
     }
   } else {
@@ -289,7 +304,7 @@ export async function updateUser(req, res) {
   const credential = await LocalCredential.findOne({
     $or: [{ userId: current._id }, { userExternalId: current.externalId }],
   })
-    .select({ userId: 1, userExternalId: 1, username: 1, _id: 0 })
+    .select({ userId: 1, userExternalId: 1, username: 1, mustResetPassword: 1, _id: 0 })
     .lean()
 
   return res.json({

@@ -38,6 +38,8 @@ export async function ensureBootstrapAdmin() {
     userExternalId: profile.externalId,
     username: env.bootstrapAdminUsername,
     passwordHash: hashPassword(env.bootstrapAdminPassword),
+    mustResetPassword: false,
+    passwordUpdatedAt: new Date(),
   })
 
   console.log(`Bootstrap admin created: ${env.bootstrapAdminUsername}`)

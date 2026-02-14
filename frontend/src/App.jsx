@@ -54,9 +54,36 @@ export default function App() {
       body: JSON.stringify({ username, password }),
     })
 
+    const body = await response.json().catch(() => ({}))
     if (!response.ok) {
-      const body = await response.json().catch(() => ({}))
+      if (body?.requiresPasswordReset) {
+        return {
+          ok: false,
+          requiresPasswordReset: true,
+          username: body.username || username,
+          currentPassword: password,
+          error: body.error || 'Password reset required.',
+        }
+      }
       return { ok: false, error: body.error || 'Login failed' }
+    }
+
+    await loadSession()
+    navigate('/home')
+    return { ok: true }
+  }
+
+  const handleResetFirstLoginPassword = async ({ username, currentPassword, newPassword }) => {
+    const response = await fetch('/api/auth/reset-first-login-password', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, currentPassword, newPassword }),
+    })
+
+    const body = await response.json().catch(() => ({}))
+    if (!response.ok) {
+      return { ok: false, error: body.error || 'Password reset failed' }
     }
 
     await loadSession()
@@ -122,7 +149,11 @@ export default function App() {
             isAuthenticated ? (
               <Navigate to="/home" />
             ) : (
-              <Login onLogin={handleLogin} onKeycloakLogin={handleKeycloakLogin} />
+              <Login
+                onLogin={handleLogin}
+                onKeycloakLogin={handleKeycloakLogin}
+                onResetFirstLoginPassword={handleResetFirstLoginPassword}
+              />
             )
           }
         />

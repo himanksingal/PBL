@@ -4,7 +4,7 @@ import { isDatabaseConnected } from '../config/db.js'
 import { rolePermissions } from '../services/mockData.js'
 import { UserProfile } from '../models/UserProfile.js'
 import { LocalCredential } from '../models/LocalCredential.js'
-import { verifyPassword } from '../services/passwordService.js'
+import { hashPassword, verifyPassword } from '../services/passwordService.js'
 import {
   buildAuthorizationUrl,
   buildLogoutUrl,
@@ -105,6 +105,14 @@ export async function login(req, res) {
     return res.status(401).json({ error: 'Invalid credentials.' })
   }
 
+  if (credential.mustResetPassword) {
+    return res.status(428).json({
+      error: 'Password reset required before first login.',
+      requiresPasswordReset: true,
+      username: credential.username,
+    })
+  }
+
   let profile = null
   if (credential.userId) {
     profile = await UserProfile.findById(credential.userId).lean()
@@ -120,6 +128,64 @@ export async function login(req, res) {
   }
   if (!profile) {
     return res.status(401).json({ error: 'User profile not found for this account.' })
+  }
+
+  const user = toUserPayload(profile)
+  const token = issueToken({
+    role: user.role,
+    source: 'local',
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    department: user.department,
+  })
+  setSessionCookie(res, token)
+
+  return res.json({
+    user,
+    permissions: rolePermissions[user.role] || [],
+  })
+}
+
+export async function resetFirstLoginPassword(req, res) {
+  if (!env.localLoginEnabled) {
+    return res.status(403).json({ error: 'Local login disabled. Use Keycloak sign in.' })
+  }
+
+  if (!isDatabaseConnected()) {
+    return res.status(503).json({ error: 'Database unavailable.' })
+  }
+
+  const { username, currentPassword, newPassword } = req.body
+  if (!username || !currentPassword || !newPassword) {
+    return res
+      .status(400)
+      .json({ error: 'username, currentPassword and newPassword are required.' })
+  }
+
+  if (String(newPassword).length < 8) {
+    return res.status(400).json({ error: 'New password must be at least 8 characters.' })
+  }
+
+  const credential = await LocalCredential.findOne({ username: String(username).trim() })
+  if (!credential || !verifyPassword(currentPassword, credential.passwordHash)) {
+    return res.status(401).json({ error: 'Invalid credentials.' })
+  }
+
+  credential.passwordHash = hashPassword(newPassword)
+  credential.mustResetPassword = false
+  credential.passwordUpdatedAt = new Date()
+  await credential.save()
+
+  let profile = null
+  if (credential.userId) {
+    profile = await UserProfile.findById(credential.userId).lean()
+  } else if (credential.userExternalId) {
+    profile = await UserProfile.findOne({ externalId: credential.userExternalId }).lean()
+  }
+
+  if (!profile) {
+    return res.status(404).json({ error: 'User profile not found for this account.' })
   }
 
   const user = toUserPayload(profile)
