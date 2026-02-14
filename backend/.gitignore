@@ -1,0 +1,17 @@
+# Env
+.env
+.env.local
+
+# Node modules
+node_modules/
+
+# Logs
+*.log
+
+# Runtime/build
+coverage/
+*.pid
+
+# Uploaded files (local dev)
+uploads/
+backend/uploads/

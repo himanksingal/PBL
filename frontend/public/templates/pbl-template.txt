@@ -1,0 +1,10 @@
+PBL Template
+
+1. Registration ID
+2. Name
+3. Select PBL (PBL-2/PBL-4)
+4. Online Webpage/PPT Link
+5. GitHub Repo Link
+6. Project Name
+
+Use this structure for your submission.

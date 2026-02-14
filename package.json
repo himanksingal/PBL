@@ -1,0 +1,16 @@
+{
+  "name": "muj-minor-project-portal",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "dev:frontend": "npm --workspace frontend run dev",
+    "dev:backend": "npm --workspace backend run dev",
+    "build:frontend": "npm --workspace frontend run build",
+    "preview:frontend": "npm --workspace frontend run preview"
+  }
+}

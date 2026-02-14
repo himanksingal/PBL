@@ -1,0 +1,132 @@
+{
+  "id": "muj",
+  "realm": "muj",
+  "displayName": "MUJ",
+  "enabled": true,
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "rememberMe": true,
+  "roles": {
+    "realm": [
+      {
+        "name": "student",
+        "description": "Student user"
+      },
+      {
+        "name": "faculty-coordinator",
+        "description": "Faculty coordinator"
+      },
+      {
+        "name": "master-admin",
+        "description": "Master admin"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "muj-portal-web",
+      "name": "MUJ Portal Web",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "REPLACE_WITH_CLIENT_SECRET",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": [
+        "http://127.0.0.1:5001/api/auth/keycloak/callback"
+      ],
+      "webOrigins": [
+        "http://127.0.0.1:5173"
+      ],
+      "baseUrl": "http://127.0.0.1:5173",
+      "adminUrl": "http://127.0.0.1:5173",
+      "attributes": {
+        "post.logout.redirect.uris": "http://127.0.0.1:5173/*"
+      },
+      "defaultClientScopes": [
+        "profile",
+        "email",
+        "roles"
+      ],
+      "optionalClientScopes": [
+        "phone",
+        "offline_access"
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "student.demo",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Student",
+      "lastName": "Demo",
+      "email": "student.demo@muj.manipal.edu",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Student@123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "student"
+      ],
+      "attributes": {
+        "phone_number": [
+          "+91-9876543210"
+        ]
+      }
+    },
+    {
+      "username": "faculty.demo",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Faculty",
+      "lastName": "Coordinator",
+      "email": "faculty.coordinator@muj.manipal.edu",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Faculty@123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "faculty-coordinator"
+      ],
+      "attributes": {
+        "phone_number": [
+          "+91-9000000110"
+        ]
+      }
+    },
+    {
+      "username": "admin.demo",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Master",
+      "lastName": "Admin",
+      "email": "admin@muj.manipal.edu",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Admin@123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "master-admin"
+      ],
+      "attributes": {
+        "phone_number": [
+          "+91-9000000001"
+        ]
+      }
+    }
+  ]
+}
