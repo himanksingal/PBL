@@ -33,15 +33,7 @@ export default function Profile() {
   return (
     <div className="px-6 py-4">
       <div className="rounded-2xl border border-slateish-200 bg-white p-6 shadow-soft">
-        <div className="flex items-center justify-between">
-          <div className="text-sm font-semibold text-slateish-700">Account Details</div>
-          <button
-            className="rounded-md border border-brand-500 px-4 py-2 text-xs font-semibold text-brand-600"
-            onClick={loadProfile}
-          >
-            Refresh
-          </button>
-        </div>
+        <div className="text-sm font-semibold text-slateish-700">Account Details</div>
 
         {loading && <div className="mt-4 text-sm text-slateish-500">Loading...</div>}
         {error && <div className="mt-4 text-sm text-red-500">{error}</div>}
