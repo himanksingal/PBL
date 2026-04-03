@@ -4,6 +4,7 @@ const UserProfileSchema = new mongoose.Schema(
   {
     authSource: { type: String, enum: ['local', 'keycloak'], default: 'local' },
     role: { type: String, required: true },
+    isCoordinator: { type: Boolean, default: false },
     externalId: { type: String, required: true, unique: true },
     registrationNumber: { type: String, required: true, unique: true },
     name: { type: String, required: true },
@@ -13,6 +14,10 @@ const UserProfileSchema = new mongoose.Schema(
     branch: { type: String, default: null },
     semester: { type: String, default: null },
     graduationYear: { type: String, default: null },
+    enrollmentDate: { type: Date, default: null },
+    dateOfJoining: { type: Date, default: null },
+    coordinatorSince: { type: Date, default: null },
+    adminSince: { type: Date, default: null },
     assignedFacultyRegistrationNumber: { type: String, default: null },
   },
   {

@@ -12,17 +12,24 @@ function downloadBlob(blob, filename) {
 }
 
 export default function FacultyDashboard({ role, user }) {
+  const backendOrigin = (import.meta.env.VITE_BACKEND_ORIGIN || '').replace(/\/+$/, '')
   const [rows, setRows] = useState([])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [semester, setSemester] = useState('')
   const [pagination, setPagination] = useState({ page: 1, pageSize: 10, total: 0, totalPages: 1 })
 
   const loadAssigned = async () => {
     setLoading(true)
     setError('')
     try {
+      const queryParams = new URLSearchParams({
+        page: pagination.page,
+        pageSize: pagination.pageSize,
+        ...(semester ? { semester } : {})
+      })
       const response = await fetch(
-        `/api/faculty/students?page=${pagination.page}&pageSize=${pagination.pageSize}`,
+        `/api/faculty/students?${queryParams.toString()}`,
         { credentials: 'include' }
       )
       const data = await response.json()
@@ -43,7 +50,8 @@ export default function FacultyDashboard({ role, user }) {
   const exportAssigned = async () => {
     setError('')
     try {
-      const response = await fetch('/api/faculty/responses/export', { credentials: 'include' })
+      const queryParams = semester ? `?semester=${semester}` : ''
+      const response = await fetch('/api/faculty/responses/export' + queryParams, { credentials: 'include' })
       if (!response.ok) {
         const body = await response.json().catch(() => ({}))
         throw new Error(body.error || 'Export failed')
@@ -72,7 +80,7 @@ export default function FacultyDashboard({ role, user }) {
 
   useEffect(() => {
     loadAssigned()
-  }, [pagination.page, pagination.pageSize])
+  }, [pagination.page, pagination.pageSize, semester])
 
   return (
     <div className="space-y-6 px-6 py-4">
@@ -84,15 +92,30 @@ export default function FacultyDashboard({ role, user }) {
               Assigned students: {rows.length}. Track form completion and review submissions.
             </p>
           </div>
-          <div className="flex gap-2">
-            <button className="shadcn-button-outline" onClick={exportAssigned}>
-              Export Assigned Responses
-            </button>
-            {role === 'Faculty Coordinator' && (
-              <button className="shadcn-button" onClick={exportAll}>
-                Export All Student Responses
+          <div className="flex flex-wrap items-center gap-4">
+            <select
+              value={semester}
+              onChange={(e) => {
+                setSemester(e.target.value)
+                setPagination(prev => ({ ...prev, page: 1 }))
+              }}
+              className="h-10 rounded-md border border-slateish-200 bg-white px-3 text-sm text-slateish-700 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+            >
+              <option value="">All Semesters</option>
+              {[1, 2, 3, 4, 5, 6, 7, 8].map(s => (
+                <option key={s} value={s}>Semester {s}</option>
+              ))}
+            </select>
+            <div className="flex gap-2">
+              <button className="shadcn-button-outline" onClick={exportAssigned}>
+                Export Assigned
               </button>
-            )}
+              {role === 'Faculty Coordinator' && (
+                <button className="shadcn-button" onClick={exportAll}>
+                  Export All Student Responses
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -188,7 +211,7 @@ export default function FacultyDashboard({ role, user }) {
                     <td className="px-3 py-2">
                       {row.latestSubmission?.offerLetterPath ? (
                         <a
-                          href={`http://localhost:5001/${row.latestSubmission.offerLetterPath}`}
+                          href={`${backendOrigin}/${String(row.latestSubmission.offerLetterPath).replace(/^\/+/, '')}`}
                           target="_blank"
                           rel="noreferrer"
                           className="text-brand-600 underline"

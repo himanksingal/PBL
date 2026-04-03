@@ -114,7 +114,7 @@ function CoordinatorDashboard({ role, permissions }) {
 
 export default function Dashboard({ role, permissions, user }) {
   if (role === 'Student') {
-    return <StudentDashboard />
+    return <StudentDashboard user={user} />
   }
 
   if (role === 'Faculty' || role === 'Faculty Coordinator') {

@@ -44,7 +44,7 @@ export async function updateStudentDashboardPanelConfig(req, res) {
     return res.status(503).json({ error: 'Database unavailable.' })
   }
 
-  if (req.user?.role !== 'Faculty Coordinator') {
+  if (!req.user?.isCoordinator && req.user?.role !== 'Master Admin') {
     return res.status(403).json({ error: 'Only faculty coordinator can edit this panel.' })
   }
 

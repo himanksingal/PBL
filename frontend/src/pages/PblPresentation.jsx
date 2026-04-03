@@ -15,7 +15,7 @@ const initialForm = {
   offerLetterPdf: null,
 }
 
-export default function PblPresentation() {
+export default function PblPresentation({ user }) {
   const [form, setForm] = useState(initialForm)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -85,9 +85,30 @@ export default function PblPresentation() {
     setSuccess('')
 
     try {
+      const sem = user?.semester || 8
+      const isSem7 = sem === 7
+      const isSem8 = sem >= 8
+      const isSem3to6 = sem >= 1 && sem <= 6
+      
+      const getPblLabel = () => {
+        switch (String(sem)) {
+          case '3': return 'PBL 1'
+          case '4': return 'PBL 2'
+          case '5': return 'PBL 3'
+          case '6': return 'PBL 4 / Minor Project'
+          default: return 'Major Project'
+        }
+      }
+
+      const finalType = isSem3to6 ? 'project' : isSem7 ? 'internship' : form.submissionType
+      const finalPbl = isSem3to6 ? getPblLabel() : (isSem8 && form.submissionType === 'major-project') ? 'Major Project' : form.pbl
+
       const payload = new FormData()
+      payload.append('submissionType', finalType)
+      if (finalPbl) payload.append('pbl', finalPbl)
+
       Object.entries(form).forEach(([key, value]) => {
-        if (value !== null && value !== '') {
+        if (key !== 'submissionType' && key !== 'pbl' && value !== null && value !== '') {
           payload.append(key, value)
         }
       })
@@ -113,8 +134,25 @@ export default function PblPresentation() {
     }
   }
 
-  const isMajorProject = form.submissionType === 'major-project'
-  const isInternship = form.submissionType === 'internship'
+  const sem = user?.semester || 8
+  const isSem7 = sem === 7
+  const isSem8 = sem >= 8
+  const isSem3to6 = sem >= 1 && sem <= 6
+
+  const getPblMenuLabel = () => {
+    switch (String(sem)) {
+      case '3': return 'PBL 1 Details'
+      case '4': return 'PBL 2 Details'
+      case '5': return 'PBL 3 Details'
+      case '6': return 'PBL 4 / Minor Project Details'
+      case '7': return 'Internship Details'
+      case '8': return 'Major Project / Internship Details'
+      default: return 'Project/Internship Details'
+    }
+  }
+
+  const isMajorProjectFlow = isSem3to6 || (isSem8 && form.submissionType === 'major-project')
+  const isInternshipFlow = isSem7 || (isSem8 && form.submissionType === 'internship')
   const showForm = status.attemptCount === 0 || resubmitMode
 
   if (loading) {
@@ -129,7 +167,7 @@ export default function PblPresentation() {
     <div className="px-6 py-4">
       <div className="rounded-xl border border-slateish-200 bg-white p-6 shadow-soft">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-xl font-semibold text-slateish-700">PBL Presentation</h1>
+          <h1 className="text-xl font-semibold text-slateish-700">{getPblMenuLabel()} Form</h1>
           <div className="text-sm text-slateish-500">Attempts used: {status.attemptCount}/2</div>
         </div>
 
@@ -157,204 +195,193 @@ export default function PblPresentation() {
           </div>
         )}
 
-        {showForm && (
-          <form className="mt-6 space-y-5" onSubmit={onSubmit}>
-            <fieldset>
+        <form className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5" onSubmit={onSubmit}>
+          {isSem8 && (
+            <fieldset className="col-span-1 md:col-span-2">
               <legend className="text-sm font-medium text-slateish-700">
-                1. What will you choose in 8th sem *
-              </legend>
-              <div className="mt-2 space-y-2 text-sm text-slateish-700">
-                <label className="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    name="submissionType"
-                    value="internship"
-                    checked={isInternship}
-                    onChange={(event) => updateField('submissionType', event.target.value)}
-                    required
-                  />
-                  Internship
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    name="submissionType"
-                    value="major-project"
-                    checked={isMajorProject}
-                    onChange={(event) => updateField('submissionType', event.target.value)}
-                    required
-                  />
-                  Major Project
-                </label>
-              </div>
-            </fieldset>
+                  What will you choose in 8th sem *
+                </legend>
+                <div className="mt-2 space-y-2 text-sm text-slateish-700">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="submissionType"
+                      value="internship"
+                      checked={form.submissionType === 'internship'}
+                      onChange={(event) => updateField('submissionType', event.target.value)}
+                      required={isSem8}
+                      disabled={!showForm}
+                    />
+                    Internship
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="submissionType"
+                      value="major-project"
+                      checked={form.submissionType === 'major-project'}
+                      onChange={(event) => updateField('submissionType', event.target.value)}
+                      required={isSem8}
+                      disabled={!showForm}
+                    />
+                    Major Project
+                  </label>
+                </div>
+              </fieldset>
+            )}
 
-            <label className="block text-sm font-medium text-slateish-700">
-              2. Registration ID *
+            <label className="block text-sm font-medium text-slateish-700 col-span-1">
+              Registration ID *
               <input
-                className="shadcn-input mt-2"
+                className="shadcn-input mt-2 h-9 text-sm px-3"
                 value={form.registrationId}
                 onChange={(event) => updateField('registrationId', event.target.value)}
                 required
+                disabled={!showForm}
                 placeholder="Enter your answer"
               />
             </label>
 
-            <label className="block text-sm font-medium text-slateish-700">
-              3. Name *
+            <label className="block text-sm font-medium text-slateish-700 col-span-1">
+              Name *
               <input
-                className="shadcn-input mt-2"
+                className="shadcn-input mt-2 h-9 text-sm px-3"
                 value={form.name}
                 onChange={(event) => updateField('name', event.target.value)}
                 required
+                disabled={!showForm}
                 placeholder="Enter your answer"
               />
             </label>
 
-            {isMajorProject && (
+            {isMajorProjectFlow && (
               <>
-                <fieldset>
-                  <legend className="text-sm font-medium text-slateish-700">4. Select PBL *</legend>
-                  <div className="mt-2 space-y-2 text-sm text-slateish-700">
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="radio"
-                        name="pbl"
-                        value="PBL-2"
-                        checked={form.pbl === 'PBL-2'}
-                        onChange={(event) => updateField('pbl', event.target.value)}
-                        required={isMajorProject}
-                      />
-                      PBL-2
-                    </label>
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="radio"
-                        name="pbl"
-                        value="PBL-4"
-                        checked={form.pbl === 'PBL-4'}
-                        onChange={(event) => updateField('pbl', event.target.value)}
-                        required={isMajorProject}
-                      />
-                      PBL-4
-                    </label>
-                  </div>
-                </fieldset>
-
-                <label className="block text-sm font-medium text-slateish-700">
-                  5. Online Webpage/PPT Link *
+                <label className="block text-sm font-medium text-slateish-700 col-span-1">
+                  Online Webpage/PPT Link *
                   <input
                     type="url"
-                    className="shadcn-input mt-2"
+                    className="shadcn-input mt-2 h-9 text-sm px-3"
                     value={form.onlineLink}
                     onChange={(event) => updateField('onlineLink', event.target.value)}
-                    required={isMajorProject}
+                    required={isMajorProjectFlow}
+                    disabled={!showForm}
                     placeholder="Enter your answer"
                   />
                 </label>
 
-                <label className="block text-sm font-medium text-slateish-700">
-                  6. GitHub Repo Link (with at least one commit close to presentation) *
+                <label className="block text-sm font-medium text-slateish-700 col-span-1">
+                  GitHub Repo Link (with at least one commit close to presentation) *
                   <input
                     type="url"
-                    className="shadcn-input mt-2"
+                    className="shadcn-input mt-2 h-9 text-sm px-3"
                     value={form.githubRepo}
                     onChange={(event) => updateField('githubRepo', event.target.value)}
-                    required={isMajorProject}
+                    required={isMajorProjectFlow}
+                    disabled={!showForm}
                     placeholder="Enter your answer"
                   />
                 </label>
 
-                <label className="block text-sm font-medium text-slateish-700">
-                  7. Project Name *
+                <label className="block text-sm font-medium text-slateish-700 col-span-1">
+                  Project Name *
                   <input
-                    className="shadcn-input mt-2"
+                    className="shadcn-input mt-2 h-9 text-sm px-3"
                     value={form.projectName}
                     onChange={(event) => updateField('projectName', event.target.value)}
-                    required={isMajorProject}
+                    required={isMajorProjectFlow}
+                    disabled={!showForm}
                     placeholder="Enter your answer"
                   />
                 </label>
               </>
             )}
 
-            {isInternship && (
+            {isInternshipFlow && (
               <>
-                <label className="block text-sm font-medium text-slateish-700">
-                  4. Company Name *
+                <label className="block text-sm font-medium text-slateish-700 col-span-1">
+                  Company Name *
                   <input
-                    className="shadcn-input mt-2"
+                    className="shadcn-input mt-2 h-9 text-sm px-3"
                     value={form.companyName}
                     onChange={(event) => updateField('companyName', event.target.value)}
-                    required={isInternship}
+                    required={isInternshipFlow}
+                    disabled={!showForm}
                     placeholder="Enter company name"
                   />
                 </label>
 
-                <label className="block text-sm font-medium text-slateish-700">
-                  5. Domain / Job Profile *
+                <label className="block text-sm font-medium text-slateish-700 col-span-1">
+                  Domain / Job Profile *
                   <input
-                    className="shadcn-input mt-2"
+                    className="shadcn-input mt-2 h-9 text-sm px-3"
                     value={form.domainJobProfile}
                     onChange={(event) => updateField('domainJobProfile', event.target.value)}
-                    required={isInternship}
+                    required={isInternshipFlow}
+                    disabled={!showForm}
                     placeholder="Enter domain or role"
                   />
                 </label>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <label className="block text-sm font-medium text-slateish-700">
-                    6. Start Date *
+                  <label className="block text-sm font-medium text-slateish-700 col-span-1">
+                    Start Date *
                     <input
                       type="date"
-                      className="shadcn-input mt-2"
+                      className="shadcn-input mt-2 h-9 text-sm px-3"
                       value={form.internshipStartDate}
                       onChange={(event) => updateField('internshipStartDate', event.target.value)}
-                      required={isInternship}
+                      required={isInternshipFlow}
+                      disabled={!showForm}
                     />
                   </label>
 
-                  <label className="block text-sm font-medium text-slateish-700">
-                    7. End Date *
+                  <label className="block text-sm font-medium text-slateish-700 col-span-1">
+                    End Date *
                     <input
                       type="date"
-                      className="shadcn-input mt-2"
+                      className="shadcn-input mt-2 h-9 text-sm px-3"
                       value={form.internshipEndDate}
                       onChange={(event) => updateField('internshipEndDate', event.target.value)}
-                      required={isInternship}
+                      required={isInternshipFlow}
+                      disabled={!showForm}
                     />
                   </label>
-                </div>
 
-                <label className="block text-sm font-medium text-slateish-700">
-                  8. Offer Letter PDF {status.attemptCount === 1 ? '(optional if already uploaded)' : '*'}
+                <label className="block text-sm font-medium text-slateish-700 col-span-1 md:col-span-2">
+                  Offer Letter PDF {status.attemptCount === 1 ? '(optional if already uploaded)' : '*'}
                   <input
                     type="file"
                     accept="application/pdf"
-                    className="shadcn-input mt-2 h-auto py-2"
+                    className="shadcn-input mt-2 h-9 text-sm py-1.5"
                     onChange={(event) => updateField('offerLetterPdf', event.target.files?.[0] || null)}
-                    required={isInternship && status.attemptCount === 0}
+                    required={isInternshipFlow && status.attemptCount === 0}
+                    disabled={!showForm}
                   />
+                  {!showForm && status.latestSubmission?.offerLetterPath && (
+                    <a href={`/${status.latestSubmission.offerLetterPath}`} target="_blank" rel="noreferrer" className="block mt-2 text-xs text-brand-600 hover:underline">View Uploaded Offer Letter</a>
+                  )}
                 </label>
               </>
             )}
 
-            {error && <p className="text-sm text-red-600">{error}</p>}
-            {success && <p className="text-sm text-emerald-700">{success}</p>}
+            <div className="col-span-1 md:col-span-2">
+              {error && <p className="text-sm text-red-600 mb-2">{error}</p>}
+              {success && <p className="text-sm text-emerald-700 mb-2">{success}</p>}
 
-            <button
-              type="submit"
-              className="rounded-md bg-brand-500 px-5 py-2 text-sm font-semibold text-white"
-              disabled={submitting}
-            >
-              {submitting
-                ? 'Submitting...'
-                : status.attemptCount === 0
-                  ? 'Submit'
-                  : 'Submit Final Resubmission'}
-            </button>
+              {showForm && (
+                <button
+                  type="submit"
+                  className="rounded-md bg-brand-500 px-5 py-2 text-sm font-semibold text-white"
+                  disabled={submitting}
+                >
+                  {submitting
+                    ? 'Submitting...'
+                    : status.attemptCount === 0
+                      ? 'Submit'
+                      : 'Submit Final Resubmission'}
+                </button>
+              )}
+            </div>
           </form>
-        )}
       </div>
     </div>
   )

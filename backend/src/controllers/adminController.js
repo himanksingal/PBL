@@ -41,7 +41,12 @@ function normalizeUser(document, credentialByUserId) {
     branch: document.branch,
     semester: document.semester,
     graduationYear: document.graduationYear,
+    enrollmentDate: document.enrollmentDate ? document.enrollmentDate.toISOString() : null,
+    dateOfJoining: document.dateOfJoining ? document.dateOfJoining.toISOString() : null,
+    coordinatorSince: document.coordinatorSince ? document.coordinatorSince.toISOString() : null,
+    adminSince: document.adminSince ? document.adminSince.toISOString() : null,
     assignedFacultyRegistrationNumber: document.assignedFacultyRegistrationNumber || null,
+    isCoordinator: document.isCoordinator || false,
   }
 }
 
@@ -81,9 +86,14 @@ async function buildUserPayload(body, { isCreate }) {
     branch: body.branch ? String(body.branch).trim() : null,
     semester: body.semester ? String(body.semester).trim() : null,
     graduationYear: body.graduationYear ? String(body.graduationYear).trim() : null,
+    enrollmentDate: body.enrollmentDate ? new Date(body.enrollmentDate) : null,
+    dateOfJoining: body.dateOfJoining ? new Date(body.dateOfJoining) : null,
+    coordinatorSince: body.coordinatorSince ? new Date(body.coordinatorSince) : null,
+    adminSince: body.adminSince ? new Date(body.adminSince) : null,
     assignedFacultyRegistrationNumber: body.assignedFacultyRegistrationNumber
       ? String(body.assignedFacultyRegistrationNumber).trim()
       : null,
+    isCoordinator: body.isCoordinator === true || body.isCoordinator === 'true',
   }
 
   if (!payload.registrationNumber || !payload.name || !payload.role) {
@@ -123,15 +133,14 @@ async function buildUserPayload(body, { isCreate }) {
 export async function getAdminStats(req, res) {
   if (!ensureDb(res)) return
 
-  const [students, facultyOnly, facultyCoordinators, admins, totalUsers] = await Promise.all([
+  const [students, faculty, admins, totalUsers] = await Promise.all([
     UserProfile.countDocuments({ role: 'Student' }),
     UserProfile.countDocuments({ role: 'Faculty' }),
-    UserProfile.countDocuments({ role: 'Faculty Coordinator' }),
     UserProfile.countDocuments({ role: 'Master Admin' }),
     UserProfile.countDocuments({}),
   ])
 
-  return res.json({ students, faculty: facultyOnly + facultyCoordinators, admins, totalUsers })
+  return res.json({ students, faculty, admins, totalUsers })
 }
 
 export async function listUsers(req, res) {
@@ -157,6 +166,7 @@ export async function listUsers(req, res) {
   if (graduationYear) filter.graduationYear = graduationYear
   if (department) filter.department = department
   if (branch) filter.branch = branch
+  
   if (role && role !== 'all') filter.role = role
 
   const allowedSort = new Set(['name', 'semester', 'graduationYear', 'role', 'registrationNumber'])
@@ -236,8 +246,13 @@ export async function createUser(req, res) {
     branch: payload.branch,
     semester: payload.semester,
     graduationYear: payload.graduationYear,
+    enrollmentDate: payload.enrollmentDate,
+    dateOfJoining: payload.dateOfJoining,
+    coordinatorSince: payload.coordinatorSince,
+    adminSince: payload.adminSince,
     assignedFacultyRegistrationNumber: payload.assignedFacultyRegistrationNumber,
     authSource: payload.authSource,
+    isCoordinator: payload.isCoordinator,
   })
 
   if (payload.authSource === 'local') {
@@ -345,8 +360,13 @@ export async function updateUser(req, res) {
       branch: payload.branch,
       semester: payload.semester,
       graduationYear: payload.graduationYear,
+      enrollmentDate: payload.enrollmentDate,
+      dateOfJoining: payload.dateOfJoining,
+      coordinatorSince: payload.coordinatorSince,
+      adminSince: payload.adminSince,
       assignedFacultyRegistrationNumber: payload.assignedFacultyRegistrationNumber,
       authSource: payload.authSource,
+      isCoordinator: payload.isCoordinator,
     },
     { new: true }
   ).lean()

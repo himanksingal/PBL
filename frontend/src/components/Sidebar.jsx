@@ -1,29 +1,20 @@
 import React, { useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import {
-  BookUser,
-  ClipboardList,
-  GraduationCap,
-  HandCoins,
-  House,
-  Menu,
-  Presentation,
-  SlidersHorizontal,
-  UserCircle2,
-  Users,
+  BookUser, ClipboardList, GraduationCap, HandCoins, House, Menu,
+  Presentation, SlidersHorizontal, UserCircle2, Users, Settings,
+  FolderOpenDot, CheckSquare
 } from 'lucide-react'
 
 const studentMenuItems = [
   { label: 'Home', path: '/home', icon: House },
-  { label: 'PBL Presentation', path: '/pbl-presentation', icon: Presentation },
-  { label: 'Profile', path: '/profile', icon: UserCircle2 },
 ]
 
 const facultyMenuItems = [
   { label: 'Home', path: '/home', icon: House },
   { label: 'Assignments', path: '/assignments', icon: BookUser },
   { label: 'Student Panel', path: '/faculty/student-panel', icon: SlidersHorizontal },
-  { label: 'Profile', path: '/profile', icon: UserCircle2 },
+  { label: 'Project/Internship Responses', path: '/pbl-review', icon: CheckSquare },
 ]
 
 const defaultMenuItems = [
@@ -38,10 +29,20 @@ const adminMenuItems = [
   { label: 'Home', path: '/home', icon: House },
   { label: 'Manage', path: '/admin/manage', icon: Users },
   { label: 'Assignments', path: '/assignments', icon: BookUser },
-  { label: 'Profile', path: '/profile', icon: UserCircle2 },
+  { label: 'Project/Internship Responses', path: '/pbl-review', icon: CheckSquare },
+  { label: 'Phase Config', path: '/admin/phases/config', icon: Settings },
 ]
 
-export default function Sidebar({ role }) {
+export default function Sidebar({ role, user }) {
+  const [phaseConfigs, setPhaseConfigs] = useState([])
+  
+  useEffect(() => {
+    fetch('/api/phases/config', { credentials: 'include' })
+      .then(r => r.json())
+      .then(d => setPhaseConfigs(d.configs || []))
+      .catch(console.error)
+  }, [])
+
   const [collapsed, setCollapsed] = useState(() => {
     try {
       return localStorage.getItem('sidebar-collapsed') === '1'
@@ -49,15 +50,55 @@ export default function Sidebar({ role }) {
       return false
     }
   })
+
+  // Build Phase Menus dynamically
+  const studentPhases = phaseConfigs
+    .filter(c => c.enabled && !c.isEvaluationPhase)
+    .map(c => ({ label: c.title, path: `/phases/${c.phaseId}/submit`, icon: FolderOpenDot }))
+  
+  const facultyPhases = phaseConfigs
+    .filter(c => c.enabled)
+    .map(c => ({
+      label: `Review: ${c.title}`, 
+      path: c.isEvaluationPhase ? `/phases/${c.phaseId}/evaluate` : `/phases/${c.phaseId}/review`,
+      icon: CheckSquare
+    }))
+
+  const getPblMenuLabel = () => {
+    if (!user || role !== 'Student' || !user.semester) return 'Project/Internship Details'
+    switch (String(user.semester)) {
+      case '3': return 'PBL 1 Details'
+      case '4': return 'PBL 2 Details'
+      case '5': return 'PBL 3 Details'
+      case '6': return 'PBL 4 / Minor Project Details'
+      case '7': return 'Internship Details'
+      case '8': return 'Major Project / Internship Details'
+      default: return 'Project/Internship Details'
+    }
+  }
+
+  const baseStudentMenu = [
+    ...studentMenuItems,
+    { label: getPblMenuLabel(), path: '/pbl-presentation', icon: Presentation },
+    ...studentPhases,
+    { label: 'Profile', path: '/profile', icon: UserCircle2 },
+  ]
+
+  const baseFacultyMenu = [
+    ...facultyMenuItems.filter((item) => role === 'Faculty Coordinator' || item.path !== '/assignments'),
+    ...facultyPhases,
+    { label: 'Profile', path: '/profile', icon: UserCircle2 }
+  ]
+
   const menuItems =
     role === 'Student'
-      ? studentMenuItems
+      ? baseStudentMenu
       : role === 'Master Admin'
-        ? adminMenuItems
-        : role === 'Faculty'
-          ? facultyMenuItems.filter((item) => item.path !== '/assignments')
-          : role === 'Faculty Coordinator'
-            ? facultyMenuItems
+        ? [...adminMenuItems, ...facultyPhases, { label: 'Profile', path: '/profile', icon: UserCircle2 }]
+        : role === 'Faculty' || role === 'Faculty Coordinator'
+          ? (role === 'Faculty Coordinator' 
+              ? [...baseFacultyMenu.slice(0, -1), { label: 'Phase Config', path: '/admin/phases/config', icon: Settings }, baseFacultyMenu[baseFacultyMenu.length-1]] 
+              : baseFacultyMenu)
           : defaultMenuItems
 
   useEffect(() => {
@@ -113,8 +154,8 @@ export default function Sidebar({ role }) {
             <item.icon className="h-4 w-4 shrink-0 transition-transform duration-200 group-hover:scale-105" />
             <span
               className={[
-                'whitespace-nowrap transition-all duration-200',
-                collapsed ? 'w-0 -translate-x-2 opacity-0' : 'w-auto translate-x-0 opacity-100',
+                'transition-all duration-200 overflow-hidden text-ellipsis',
+                collapsed ? 'w-0 whitespace-nowrap -translate-x-2 opacity-0' : 'w-auto translate-x-0 opacity-100 line-clamp-2',
               ].join(' ')}
             >
               {item.label}

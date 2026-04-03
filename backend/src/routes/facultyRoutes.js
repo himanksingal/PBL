@@ -5,6 +5,8 @@ import {
   exportAllStudentResponses,
   exportAssignedStudentResponses,
   getAssignedStudentsWithSubmissions,
+  grantPblResubmit,
+  editPblSubmission
 } from '../controllers/facultyController.js'
 import {
   getStudentDashboardPanelConfig,
@@ -21,5 +23,7 @@ router.get('/responses/export', exportAssignedStudentResponses)
 router.get('/responses/export-all', exportAllStudentResponses)
 router.get('/student-dashboard-panel', getStudentDashboardPanelConfig)
 router.put('/student-dashboard-panel', updateStudentDashboardPanelConfig)
+router.patch('/responses/resubmit', grantPblResubmit)
+router.put('/responses/:id', requirePermission('set-assessments'), editPblSubmission)
 
 export default router

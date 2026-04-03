@@ -4,12 +4,12 @@ const PblSubmissionSchema = new mongoose.Schema(
   {
     submissionType: {
       type: String,
-      enum: ['major-project', 'internship'],
+      enum: ['major-project', 'internship', 'project'],
       required: true,
     },
     registrationId: { type: String, required: true, trim: true },
     name: { type: String, required: true, trim: true },
-    pbl: { type: String, enum: ['PBL-2', 'PBL-4'], default: null },
+    pbl: { type: String, default: null },
     onlineLink: { type: String, default: null },
     githubRepo: { type: String, default: null },
     projectName: { type: String, default: null },
@@ -20,7 +20,8 @@ const PblSubmissionSchema = new mongoose.Schema(
     offerLetterPath: { type: String, default: null },
     submittedBy: { type: String, required: true },
     submittedByRole: { type: String, required: true },
-    attemptNumber: { type: Number, required: true, min: 1, max: 2 },
+    attemptNumber: { type: Number, required: true, min: 1 },
+    resubmitGranted: { type: Boolean, default: false },
   },
   {
     timestamps: true,

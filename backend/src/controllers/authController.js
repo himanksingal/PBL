@@ -1,7 +1,7 @@
 import { issueToken } from '../services/tokenService.js'
 import { env } from '../config/env.js'
 import { isDatabaseConnected } from '../config/db.js'
-import { rolePermissions } from '../services/mockData.js'
+import { rolePermissions } from '../services/permissions.js'
 import { UserProfile } from '../models/UserProfile.js'
 import { LocalCredential } from '../models/LocalCredential.js'
 import { hashPassword, verifyPassword } from '../services/passwordService.js'
@@ -19,10 +19,10 @@ import {
 function mapKeycloakRole(claims) {
   const roleList = claims?.realm_access?.roles || []
   console.log('[keycloak] realm roles received:', roleList)
-  if (roleList.includes('master-admin')) return 'Master Admin'
-  if (roleList.includes('faculty-coordinator')) return 'Faculty Coordinator'
-  if (roleList.includes('faculty')) return 'Faculty'
-  return 'Student'
+  if (roleList.includes('master-admin')) return { role: 'Master Admin', isCoordinator: false }
+  if (roleList.includes('faculty-coordinator')) return { role: 'Faculty', isCoordinator: true }
+  if (roleList.includes('faculty')) return { role: 'Faculty', isCoordinator: false }
+  return { role: 'Student', isCoordinator: false }
 }
 
 function setSessionCookie(res, token) {
@@ -58,6 +58,7 @@ function toUserPayload(profile) {
     branch: profile.branch || null,
     semester: profile.semester || null,
     graduationYear: profile.graduationYear || null,
+    isCoordinator: profile.isCoordinator || false,
   }
 }
 
@@ -69,6 +70,7 @@ async function upsertUserProfile(user, authSource) {
     {
       authSource,
       role: user.role,
+      isCoordinator: user.isCoordinator || false,
       externalId: user.id,
       registrationNumber: user.registrationNumber || user.id,
       name: user.name,
@@ -134,6 +136,7 @@ export async function login(req, res) {
   const user = toUserPayload(profile)
   const token = issueToken({
     role: user.role,
+    isCoordinator: user.isCoordinator,
     source: 'local',
     id: profile.externalId,
     registrationNumber: user.registrationNumber,
@@ -193,6 +196,7 @@ export async function resetFirstLoginPassword(req, res) {
   const user = toUserPayload(profile)
   const token = issueToken({
     role: user.role,
+    isCoordinator: user.isCoordinator,
     source: 'local',
     id: profile.externalId,
     registrationNumber: user.registrationNumber,
@@ -265,12 +269,13 @@ export async function keycloakCallback(req, res) {
 
 
     // Use access_token for role mapping (Keycloak puts realm_access there, not in id_token)
-    const role = mapKeycloakRole(accessClaims || claims)
+    const roleMap = mapKeycloakRole(accessClaims || claims)
     const user = {
       id: claims.sub,
       registrationNumber:
         claims.registration_number || claims.registrationNumber || claims.preferred_username || claims.sub,
-      role,
+      role: roleMap.role,
+      isCoordinator: roleMap.isCoordinator,
       name: claims.name || claims.preferred_username || 'User',
       email: claims.email || null,
       phone: claims.phone_number || null,
@@ -284,7 +289,8 @@ export async function keycloakCallback(req, res) {
 
 
     const appToken = issueToken({
-      role,
+      role: roleMap.role,
+      isCoordinator: roleMap.isCoordinator,
       source: 'keycloak',
       id: profile.internalId || profile.id,
       registrationNumber: profile.registrationNumber || profile.id,

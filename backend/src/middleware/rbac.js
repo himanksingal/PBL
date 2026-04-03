@@ -1,8 +1,10 @@
-import { rolePermissions } from '../services/mockData.js'
+import { rolePermissions } from '../services/permissions.js'
 
 export function requirePermission(permission) {
   return (req, res, next) => {
-    const role = req.user?.role
+    const baseRole = req.user?.role
+    const role =
+      baseRole === 'Faculty' && req.user?.isCoordinator ? 'Faculty Coordinator' : baseRole
     const allowed = rolePermissions[role] || []
     if (!allowed.includes(permission)) {
       return res.status(403).json({ error: 'Forbidden' })

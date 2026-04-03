@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 
-export default function StudentDashboard() {
+export default function StudentDashboard({ user }) {
+  const semesterStr = user?.semester || '0'
+  const isMajorProject = ['7', '8'].includes(semesterStr) || parseInt(semesterStr, 10) >= 7
+
   const [guideName, setGuideName] = useState('')
   const [result, setResult] = useState(null)
   const [error, setError] = useState('')
@@ -90,9 +93,13 @@ export default function StudentDashboard() {
   return (
     <div className="space-y-6 px-6 py-4">
       <div className="rounded-xl border border-slateish-200 bg-white p-6 shadow-soft">
-        <h1 className="text-2xl font-semibold text-slateish-700">PBL Information Portal</h1>
+        <h1 className="text-2xl font-semibold text-slateish-700">
+          {isMajorProject ? 'Major Project & Internship Portal' : 'PBL Information Portal'}
+        </h1>
         <p className="mt-1 text-sm text-slateish-500">
-          Central resource hub for PBL mid-term evaluation.
+          {isMajorProject
+            ? 'Central resource hub for Major Project & Internship evaluation.'
+            : 'Central resource hub for PBL mid-term evaluation.'}
         </p>
       </div>
 
@@ -187,7 +194,9 @@ export default function StudentDashboard() {
 
       <div className="rounded-xl border border-slateish-200 bg-white p-6 shadow-soft">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="text-sm font-semibold text-slateish-700">PBL Submission Actions</div>
+          <div className="text-sm font-semibold text-slateish-700">
+            {isMajorProject ? 'Major Project / Internship Submission' : 'PBL Submission Actions'}
+          </div>
           <div className="flex flex-wrap gap-3">
             <a
               className="shadcn-button-outline"
@@ -197,7 +206,7 @@ export default function StudentDashboard() {
               Download Template
             </a>
             <Link className="shadcn-button" to="/pbl-presentation">
-              Open PBL Presentation Form
+              {isMajorProject ? 'Open Submission Form' : 'Open PBL Presentation Form'}
             </Link>
           </div>
         </div>

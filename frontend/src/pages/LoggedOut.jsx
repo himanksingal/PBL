@@ -6,6 +6,23 @@ export default function LoggedOut() {
   const [seconds, setSeconds] = useState(3)
 
   useEffect(() => {
+    let cancelled = false
+
+    const checkSession = async () => {
+      try {
+        const response = await fetch('/api/profile', { credentials: 'include' })
+        if (!response.ok) return
+        const data = await response.json().catch(() => ({}))
+        if (!cancelled && data?.user) {
+          navigate('/home', { replace: true })
+        }
+      } catch {
+        // ignore and fall back to countdown
+      }
+    }
+
+    checkSession()
+
     const interval = setInterval(() => {
       setSeconds((prev) => {
         if (prev <= 1) {
@@ -17,7 +34,10 @@ export default function LoggedOut() {
       })
     }, 1000)
 
-    return () => clearInterval(interval)
+    return () => {
+      cancelled = true
+      clearInterval(interval)
+    }
   }, [navigate])
 
   return (

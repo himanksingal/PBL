@@ -14,6 +14,11 @@ import AdminManageUsers from './pages/AdminManageUsers.jsx'
 import FacultyAssignments from './pages/FacultyAssignments.jsx'
 import StudentPanelConfig from './pages/StudentPanelConfig.jsx'
 import LoggedOut from './pages/LoggedOut.jsx'
+import PhaseSubmit from './pages/PhaseSubmit.jsx'
+import PhaseReview from './pages/PhaseReview.jsx'
+import PhaseEvaluate from './pages/PhaseEvaluate.jsx'
+import PhaseConfigPage from './pages/PhaseConfigPage.jsx'
+import PblReview from './pages/PblReview.jsx'
 
 function PageFallback() {
   return <div className="min-h-screen bg-slateish-100" />
@@ -125,7 +130,7 @@ export default function App() {
   }
 
   useEffect(() => {
-    if (location.pathname === '/login') {
+    if (location.pathname === '/login' || location.pathname === '/logged-out') {
       setLoadingSession(false)
       return
     }
@@ -201,7 +206,12 @@ export default function App() {
 
           <Route
             path="/pbl-presentation"
-            element={isStudent ? <PblPresentation /> : <Navigate to="/home" />}
+            element={isStudent ? <PblPresentation user={user} /> : <Navigate to="/home" />}
+          />
+
+          <Route
+            path="/pbl-review"
+            element={isFaculty || isFacultyCoordinator || isAdmin ? <PblReview user={user} /> : <Navigate to="/home" />}
           />
 
           <Route
@@ -217,6 +227,23 @@ export default function App() {
           <Route
             path="/marks"
             element={isStudent || isAdmin ? <Navigate to="/home" /> : <Marks />}
+          />
+
+          <Route
+            path="/phases/:phaseId/submit"
+            element={isStudent ? <PhaseSubmit user={user} /> : <Navigate to="/home" />}
+          />
+          <Route
+            path="/phases/:phaseId/review"
+            element={isFaculty || isFacultyCoordinator || isAdmin ? <PhaseReview user={user} /> : <Navigate to="/home" />}
+          />
+          <Route
+            path="/phases/:phaseId/evaluate"
+            element={isFaculty || isFacultyCoordinator || isAdmin ? <PhaseEvaluate user={user} /> : <Navigate to="/home" />}
+          />
+          <Route
+            path="/admin/phases/config"
+            element={isAdmin || isFacultyCoordinator ? <PhaseConfigPage user={user} /> : <Navigate to="/home" />}
           />
 
           <Route path="/profile" element={<Profile />} />

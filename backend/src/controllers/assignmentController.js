@@ -11,7 +11,7 @@ export async function listFacultyOptions(req, res) {
   const { page, pageSize, skip } = parsePagination(req.query)
 
   const filter = {
-    role: { $in: ['Faculty', 'Faculty Coordinator'] },
+    role: 'Faculty',
   }
 
   if (search) {
@@ -50,9 +50,19 @@ export async function listStudentOptions(req, res) {
 
   const search = String(req.query.search || '').trim()
   const facultyRegistrationNumber = String(req.query.facultyRegistrationNumber || '').trim()
+  const onlyAssignedTo = String(req.query.onlyAssignedTo || '').trim()
+  const semester = String(req.query.semester || '').trim()
   const { page, pageSize, skip } = parsePagination(req.query)
 
   const filter = { role: 'Student' }
+
+  if (semester) {
+    filter.semester = semester
+  }
+
+  if (onlyAssignedTo) {
+    filter.assignedFacultyRegistrationNumber = onlyAssignedTo
+  }
 
   if (search) {
     const regex = new RegExp(search, 'i')
@@ -77,6 +87,16 @@ export async function listStudentOptions(req, res) {
     UserProfile.countDocuments(filter),
   ])
 
+  // Resolve faculty names
+  const assignedFacultyRegNumbers = [...new Set(students.map(s => s.assignedFacultyRegistrationNumber).filter(Boolean))]
+  let facultyNamesMap = {}
+  if (assignedFacultyRegNumbers.length > 0) {
+    const faculties = await UserProfile.find({ registrationNumber: { $in: assignedFacultyRegNumbers } }).select({ registrationNumber: 1, name: 1 }).lean()
+    for (const f of faculties) {
+      facultyNamesMap[f.registrationNumber] = f.name
+    }
+  }
+
   return res.json({
     students: students.map((item) => {
       const assigned = item.assignedFacultyRegistrationNumber || null
@@ -88,6 +108,7 @@ export async function listStudentOptions(req, res) {
         semester: item.semester || null,
         department: item.department || null,
         assignedFacultyRegistrationNumber: assigned,
+        assignedFacultyName: assigned ? (facultyNamesMap[assigned] || null) : null,
         selected: facultyRegistrationNumber ? assigned === facultyRegistrationNumber : false,
       }
     }),
@@ -121,7 +142,7 @@ export async function assignStudentsToFaculty(req, res) {
 
   const faculty = await UserProfile.findOne({
     registrationNumber: facultyRegistrationNumber,
-    role: { $in: ['Faculty', 'Faculty Coordinator'] },
+    role: 'Faculty',
   }).lean()
 
   if (!faculty) {

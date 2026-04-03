@@ -14,6 +14,8 @@ import adminRoutes from './routes/adminRoutes.js'
 import facultyRoutes from './routes/facultyRoutes.js'
 import assignmentRoutes from './routes/assignmentRoutes.js'
 import metaRoutes from './routes/metaRoutes.js'
+import phaseRoutes from './routes/phaseRoutes.js'
+import { syncAllStudentSemesters } from './services/semesterSync.js'
 
 const app = express()
 
@@ -45,10 +47,16 @@ app.use('/api/admin', adminRoutes)
 app.use('/api/faculty', facultyRoutes)
 app.use('/api/assignments', assignmentRoutes)
 app.use('/api/meta', metaRoutes)
+app.use('/api/phases', phaseRoutes)
 
 app.use((error, req, res, next) => {
   if (error) {
-    return res.status(400).json({ error: error.message || 'Request failed' })
+    const status = Number(error.statusCode || error.status) || 500
+    const message = error.message || 'Request failed'
+    if (env.nodeEnv !== 'production') {
+      console.error('[api] unhandled error:', message, error.stack || error)
+    }
+    return res.status(status).json({ error: message })
   }
   return next()
 })
@@ -60,6 +68,7 @@ app.use((req, res) => {
 async function startServer() {
   await connectDatabase()
   await ensureBootstrapAdmin()
+  await syncAllStudentSemesters()
 
   const server = app.listen(env.port, env.host, () => {
     console.log(`API listening on http://${env.host}:${env.port}`)

@@ -21,13 +21,18 @@ function mapStudentItem(student, submissions) {
   }
 }
 
-async function buildAssignedStudentPayload(facultyId) {
-  const facultyProfile = await UserProfile.findOne({ externalId: facultyId }).lean()
-  const facultyRegistrationNumber = facultyProfile?.registrationNumber || facultyId
-  const students = await UserProfile.find({
-    role: 'Student',
-    assignedFacultyRegistrationNumber: facultyRegistrationNumber,
-  }).lean()
+async function buildAssignedStudentPayload(user, semesterFilter = null) {
+  const query = { role: 'Student' }
+  
+  if (user.role === 'Faculty') {
+    const facultyProfile = await UserProfile.findOne({ externalId: user.id }).lean()
+    const facultyRegistrationNumber = facultyProfile?.registrationNumber || user.id
+    query.assignedFacultyRegistrationNumber = facultyRegistrationNumber
+  }
+  
+  if (semesterFilter) query.semester = String(semesterFilter).trim()
+
+  const students = await UserProfile.find(query).lean()
   const studentIds = [
     ...new Set(
       students
@@ -63,7 +68,8 @@ export async function getAssignedStudentsWithSubmissions(req, res) {
   }
 
   const { page, pageSize, skip } = parsePagination(req.query)
-  const allRows = await buildAssignedStudentPayload(req.user.id)
+  const semesterFilter = req.query.semester || null
+  const allRows = await buildAssignedStudentPayload(req.user, semesterFilter)
   const rows = allRows.slice(skip, skip + pageSize)
   return res.json({
     rows,
@@ -81,7 +87,8 @@ export async function exportAssignedStudentResponses(req, res) {
     return res.status(503).json({ error: 'Database is not connected. Configure MongoDB Atlas first.' })
   }
 
-  const rows = await buildAssignedStudentPayload(req.user.id)
+  const semesterFilter = req.query.semester || null
+  const rows = await buildAssignedStudentPayload(req.user, semesterFilter)
   const flat = rows
     .filter((item) => item.latestSubmission)
     .map((item) => ({
@@ -131,8 +138,8 @@ export async function exportAllStudentResponses(req, res) {
     return res.status(503).json({ error: 'Database is not connected. Configure MongoDB Atlas first.' })
   }
 
-  if (req.user.role !== 'Faculty Coordinator') {
-    return res.status(403).json({ error: 'Only faculty coordinator can export all responses.' })
+  if (!req.user.isCoordinator) {
+    return res.status(403).json({ error: 'Only Faculty Coordinators can configure milestones' })
   }
 
   const submissions = await PblSubmission.find().sort({ createdAt: -1 }).lean()
@@ -157,4 +164,46 @@ export async function exportAllStudentResponses(req, res) {
   res.setHeader('Content-Type', 'text/csv; charset=utf-8')
   res.setHeader('Content-Disposition', 'attachment; filename="all-student-responses.csv"')
   return res.send(csv)
+}
+
+export async function grantPblResubmit(req, res) {
+  if (!isDatabaseConnected()) {
+    return res.status(503).json({ error: 'Database is not connected. Configure MongoDB Atlas first.' })
+  }
+  
+  try {
+    const { studentId } = req.body
+    const latest = await PblSubmission.findOne({ submittedBy: studentId }).sort({ createdAt: -1 })
+    if (!latest) return res.status(404).json({ error: 'No submission found for this student.' })
+    
+    latest.resubmitGranted = true
+    await latest.save()
+    
+    return res.json({ message: 'Resubmit granted successfully. The student can now unlock their form.' })
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to grant resubmit', details: err.message })
+  }
+}
+
+export async function editPblSubmission(req, res) {
+  if (!isDatabaseConnected()) {
+    return res.status(503).json({ error: 'Database is not connected.' })
+  }
+  
+  try {
+    const { id } = req.params
+    const updateData = req.body
+    
+    const record = await PblSubmission.findByIdAndUpdate(
+      id,
+      { $set: updateData },
+      { new: true, runValidators: true }
+    )
+    
+    if (!record) return res.status(404).json({ error: 'Submission not found' })
+    
+    return res.json({ message: 'Submission updated successfully', record })
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to update submission', details: err.message })
+  }
 }

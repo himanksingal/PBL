@@ -1,9 +1,9 @@
 export const enumDefaults = {
-  roles: ['Student', 'Faculty', 'Faculty Coordinator', 'Master Admin'],
+  roles: ['Student', 'Faculty', 'Master Admin'],
   authSources: ['local', 'keycloak'],
   departments: ['DOCSE', 'DOCAI', 'DOECE', 'DOME', 'Administration'],
   branches: ['Computer Science & Engineering', 'CSE (AI/ML)', 'ECE', 'ME', 'Administration'],
-  semesters: ['III', 'IV', 'V', 'VI', 'VII', 'VIII'],
+  semesters: ['1', '2', '3', '4', '5', '6', '7', '8'],
   graduationYears: ['2026', '2027', '2028', '2029'],
 }
 

@@ -52,8 +52,10 @@ export async function getMySubmissionStatus(req, res) {
     PblSubmission.findOne({ submittedBy }).sort({ createdAt: -1 }).lean(),
   ])
 
+  const effectiveAttemptCount = (attemptCount >= 2 && latestSubmission?.resubmitGranted) ? 1 : attemptCount
+
   return res.json({
-    ...buildSubmissionStatus(attemptCount),
+    ...buildSubmissionStatus(effectiveAttemptCount),
     latestSubmission,
   })
 }
@@ -65,7 +67,9 @@ export async function submitPblPresentation(req, res) {
 
   const submittedBy = req.user.registrationNumber || req.user.id
   const attemptCount = await PblSubmission.countDocuments({ submittedBy })
-  if (attemptCount >= 2) {
+  const previous = attemptCount > 0 ? await PblSubmission.findOne({ submittedBy }).sort({ createdAt: -1 }).lean() : null
+  
+  if (attemptCount >= 2 && !previous?.resubmitGranted) {
     return res.status(403).json({ error: 'Submission locked. You have already used both attempts.' })
   }
 
@@ -87,17 +91,13 @@ export async function submitPblPresentation(req, res) {
     return res.status(400).json({ error: 'Submission type, registration ID and name are required.' })
   }
 
-  if (!['major-project', 'internship'].includes(submissionType)) {
+  if (!['major-project', 'internship', 'project'].includes(submissionType)) {
     return res.status(400).json({ error: 'Invalid submission type.' })
   }
 
-  if (submissionType === 'major-project') {
+  if (submissionType === 'major-project' || submissionType === 'project') {
     if (!pbl || !onlineLink || !githubRepo || !projectName) {
-      return res.status(400).json({ error: 'Major project details are required.' })
-    }
-
-    if (!['PBL-2', 'PBL-4'].includes(pbl)) {
-      return res.status(400).json({ error: 'Invalid PBL selection.' })
+      return res.status(400).json({ error: 'Project details are required.' })
     }
 
     if (!isValidUrl(onlineLink) || !isValidUrl(githubRepo)) {
@@ -119,11 +119,6 @@ export async function submitPblPresentation(req, res) {
     }
   }
 
-  const previous =
-    attemptCount > 0
-      ? await PblSubmission.findOne({ submittedBy }).sort({ createdAt: -1 }).lean()
-      : null
-
   const offerLetterPath = req.file
     ? path.join('uploads', 'offer-letters', req.file.filename).replaceAll('\\', '/')
     : previous?.offerLetterPath || null
@@ -132,10 +127,10 @@ export async function submitPblPresentation(req, res) {
     submissionType,
     registrationId,
     name,
-    pbl: submissionType === 'major-project' ? pbl : null,
-    onlineLink: submissionType === 'major-project' ? onlineLink : null,
-    githubRepo: submissionType === 'major-project' ? githubRepo : null,
-    projectName: submissionType === 'major-project' ? projectName : null,
+    pbl: (submissionType === 'major-project' || submissionType === 'project') ? pbl : null,
+    onlineLink: (submissionType === 'major-project' || submissionType === 'project') ? onlineLink : null,
+    githubRepo: (submissionType === 'major-project' || submissionType === 'project') ? githubRepo : null,
+    projectName: (submissionType === 'major-project' || submissionType === 'project') ? projectName : null,
     companyName: submissionType === 'internship' ? companyName : null,
     domainJobProfile: submissionType === 'internship' ? domainJobProfile : null,
     internshipStartDate: submissionType === 'internship' ? internshipStartDate : null,
@@ -149,7 +144,7 @@ export async function submitPblPresentation(req, res) {
   return res.status(201).json({
     message: attemptCount === 0 ? 'PBL presentation submitted.' : 'PBL presentation resubmitted.',
     record,
-    ...buildSubmissionStatus(attemptCount + 1),
+    ...buildSubmissionStatus((attemptCount >= 2 && previous?.resubmitGranted) ? 2 : attemptCount + 1),
   })
 }
 
@@ -166,7 +161,7 @@ export async function getAssignedFacultyForStudent(req, res) {
 
   const faculty = await UserProfile.findOne({
     registrationNumber: assignedFacultyRegistrationNumber,
-    role: { $in: ['Faculty', 'Faculty Coordinator'] },
+    role: 'Faculty',
   }).lean()
 
   if (!faculty) {
