@@ -12,7 +12,7 @@ import PblPresentation from './pages/PblPresentation.jsx'
 import AdminHome from './pages/AdminHome.jsx'
 import AdminManageUsers from './pages/AdminManageUsers.jsx'
 import FacultyAssignments from './pages/FacultyAssignments.jsx'
-import StudentPanelConfig from './pages/StudentPanelConfig.jsx'
+
 import LoggedOut from './pages/LoggedOut.jsx'
 import PhaseSubmit from './pages/PhaseSubmit.jsx'
 import PhaseReview from './pages/PhaseReview.jsx'
@@ -199,10 +199,7 @@ export default function App() {
             element={isAdmin || isFacultyCoordinator ? <FacultyAssignments /> : <Navigate to="/home" />}
           />
 
-          <Route
-            path="/faculty/student-panel"
-            element={isFaculty || isFacultyCoordinator ? <StudentPanelConfig role={role} /> : <Navigate to="/home" />}
-          />
+
 
           <Route
             path="/pbl-presentation"

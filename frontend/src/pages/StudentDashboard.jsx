@@ -5,10 +5,6 @@ export default function StudentDashboard({ user }) {
   const semesterStr = user?.semester || '0'
   const isMajorProject = ['7', '8'].includes(semesterStr) || parseInt(semesterStr, 10) >= 7
 
-  const [guideName, setGuideName] = useState('')
-  const [result, setResult] = useState(null)
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
   const [assignedFaculty, setAssignedFaculty] = useState(null)
   const [facultyLoading, setFacultyLoading] = useState(true)
   const [panelConfig, setPanelConfig] = useState({
@@ -58,38 +54,6 @@ export default function StudentDashboard({ user }) {
     loadPanelConfig()
   }, [])
 
-  const findExaminer = async () => {
-    if (!guideName.trim()) {
-      setError('Please enter guide name.')
-      setResult(null)
-      return
-    }
-
-    setLoading(true)
-    setError('')
-    setResult(null)
-
-    try {
-      const response = await fetch(
-        `/api/student/examiner?guideName=${encodeURIComponent(guideName.trim())}`,
-        {
-          credentials: 'include',
-        }
-      )
-
-      const data = await response.json()
-      if (!response.ok) {
-        throw new Error(data.error || 'Examiner not found.')
-      }
-
-      setResult(data)
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setLoading(false)
-    }
-  }
-
   return (
     <div className="space-y-6 px-6 py-4">
       <div className="rounded-xl border border-slateish-200 bg-white p-6 shadow-soft">
@@ -131,37 +95,6 @@ export default function StudentDashboard({ user }) {
               <div className="text-xs text-slateish-500">Phone</div>
               <div className="text-sm font-semibold text-slateish-700">{assignedFaculty.phone || '-'}</div>
             </div>
-          </div>
-        )}
-      </div>
-
-      <div className="rounded-xl border border-slateish-200 bg-white p-6 shadow-soft">
-        <div className="grid gap-4 md:grid-cols-[1fr_2fr_auto] md:items-end">
-          <div>
-            <div className="text-sm font-semibold text-slateish-700">Venue & Panel Finder</div>
-            <div className="text-xs text-slateish-500">Search by guide/faculty name</div>
-          </div>
-          <input
-            className="shadcn-input"
-            placeholder="Type guide name (Ex: Neha, Ashish, Ajay)"
-            value={guideName}
-            onChange={(event) => setGuideName(event.target.value)}
-          />
-          <button className="shadcn-button" onClick={findExaminer} disabled={loading}>
-            {loading ? 'Finding...' : 'Find'}
-          </button>
-        </div>
-
-        {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
-
-        {result && (
-          <div className="mt-4 rounded-lg border border-slateish-200 bg-slateish-50 p-4 text-sm text-slateish-700">
-            <div><strong>Guide:</strong> {result.guideName}</div>
-            <div><strong>External Examiner:</strong> {result.externalExaminer}</div>
-            <div><strong>Panel:</strong> {result.panel}</div>
-            <div><strong>Venue:</strong> {result.venue}</div>
-            <div><strong>Date:</strong> {result.date}</div>
-            <div><strong>Slot:</strong> {result.slot}</div>
           </div>
         )}
       </div>
@@ -214,3 +147,4 @@ export default function StudentDashboard({ user }) {
     </div>
   )
 }
+

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import {
   BookUser, ClipboardList, GraduationCap, HandCoins, House, Menu,
-  Presentation, SlidersHorizontal, UserCircle2, Users, Settings,
+  Presentation, UserCircle2, Users, Settings,
   FolderOpenDot, CheckSquare
 } from 'lucide-react'
 
@@ -13,7 +13,6 @@ const studentMenuItems = [
 const facultyMenuItems = [
   { label: 'Home', path: '/home', icon: House },
   { label: 'Assignments', path: '/assignments', icon: BookUser },
-  { label: 'Student Panel', path: '/faculty/student-panel', icon: SlidersHorizontal },
   { label: 'Project/Internship Responses', path: '/pbl-review', icon: CheckSquare },
 ]
 

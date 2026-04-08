@@ -2,20 +2,37 @@ import mongoose from 'mongoose'
 
 const LocalCredentialSchema = new mongoose.Schema(
   {
+    // 🔗 Link to UserProfile
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'UserProfile',
       required: true,
       unique: true,
       index: true,
-      sparse: true,
     },
-    // legacy field kept optional for backward compatibility during migration
-    userExternalId: { type: String, required: false },
-    username: { type: String, required: true, unique: true, index: true },
-    passwordHash: { type: String, required: true },
-    mustResetPassword: { type: Boolean, default: true },
-    passwordUpdatedAt: { type: Date, default: Date.now },
+
+    // 🔑 Login Credentials
+    username: {
+      type: String,
+      required: true,
+      unique: true,
+      index: true,
+    },
+
+    passwordHash: {
+      type: String,
+      required: true,
+    },
+
+    // 🔄 Security
+    mustResetPassword: {
+      type: Boolean,
+      default: true,
+    },
+    passwordUpdatedAt: {
+      type: Date,
+      default: Date.now,
+    },
   },
   { timestamps: true }
 )

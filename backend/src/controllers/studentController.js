@@ -1,5 +1,4 @@
 import path from 'node:path'
-import { findExaminerByGuide } from '../services/studentData.js'
 import { PblSubmission } from '../models/PblSubmission.js'
 import { isDatabaseConnected } from '../config/db.js'
 import { UserProfile } from '../models/UserProfile.js'
@@ -30,16 +29,7 @@ function buildSubmissionStatus(attemptCount) {
   }
 }
 
-export function getExaminerByGuide(req, res) {
-  const guideName = req.query.guideName || ''
-  const result = findExaminerByGuide(guideName)
 
-  if (!result) {
-    return res.status(404).json({ error: 'No examiner mapping found for this guide.' })
-  }
-
-  return res.json(result)
-}
 
 export async function getMySubmissionStatus(req, res) {
   if (!isDatabaseConnected()) {
