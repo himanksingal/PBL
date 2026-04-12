@@ -1,83 +1,81 @@
 import React from 'react'
 import { Button } from '../ui/button.jsx'
-import { Spinner } from '../ui/spinner.jsx'
 import { Table, TableCell, TableHead, TableRow } from '../ui/table.jsx'
 
 export default function UserTable({
   users,
-  loading,
-  searching,
   onEditClick,
   onDelete,
   pagination,
-  setPagination
+  setPagination,
+  currentRole = 'student'
 }) {
+  const isStudent = currentRole === 'student';
+  const isFaculty = currentRole === 'faculty';
+  const isAdmin = currentRole === 'admin';
+
   return (
     <>
-      {(searching || loading) && (
-        <div className="mt-4 flex items-center gap-2 text-sm text-slateish-500">
-          <Spinner />
-          Searching users...
-        </div>
-      )}
-
       <div className="mt-4 overflow-auto">
         <Table>
           <thead>
             <tr className="bg-slateish-100 text-left text-slateish-600">
-              <TableHead>ID</TableHead>
+              <TableHead>Registration Number</TableHead>
               <TableHead>Name</TableHead>
-              <TableHead>Role</TableHead>
-              <TableHead>Auth</TableHead>
-              <TableHead>Username</TableHead>
-              <TableHead>Reset Required</TableHead>
-              <TableHead>Semester</TableHead>
-              <TableHead>Year</TableHead>
+              {isAdmin && <TableHead>Role</TableHead>}
+
+              {isStudent && <TableHead>Semester</TableHead>}
               <TableHead>Department</TableHead>
               <TableHead>Email</TableHead>
-              <TableHead>Phone</TableHead>
-              <TableHead>Assigned Faculty</TableHead>
+              {isStudent && <TableHead>Assigned Faculty</TableHead>}
+              {isFaculty && <TableHead>Coordinator</TableHead>}
               <TableHead>Actions</TableHead>
             </tr>
           </thead>
           <tbody>
             {users.map((user) => (
-              <TableRow key={user.internalId || user.id}>
-                <TableCell>{user.id}</TableCell>
-                <TableCell>{user.name}</TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                     {user.role}
-                     {user.role === 'Faculty' && user.isCoordinator && (
-                       <span className="inline-flex items-center rounded-full bg-brand-100 px-2.5 py-0.5 text-xs font-semibold text-brand-700">
-                         Coordinator
-                       </span>
-                     )}
-                  </div>
-                </TableCell>
-                <TableCell>{user.authSource || '-'}</TableCell>
-                <TableCell>{user.username || '-'}</TableCell>
-                <TableCell>{user.mustResetPassword ? 'Yes' : 'No'}</TableCell>
-                <TableCell>{user.semester || '-'}</TableCell>
-                <TableCell>{user.graduationYear || '-'}</TableCell>
+              <TableRow key={user.id}>
+                <TableCell className="font-medium text-slateish-700">{user.id || user.registrationNumber}</TableCell>
+                <TableCell>{`${user.firstName || ''} ${user.lastName || ''}`.trim() || '-'}</TableCell>
+                {isAdmin && <TableCell className="capitalize">{user.role}</TableCell>}
+
+                {isStudent && <TableCell>{user.semester || '-'}</TableCell>}
                 <TableCell>{user.department || '-'}</TableCell>
                 <TableCell>{user.email || '-'}</TableCell>
-                <TableCell>{user.phone || '-'}</TableCell>
-                <TableCell>{user.assignedFacultyRegistrationNumber || '-'}</TableCell>
+                {isStudent && <TableCell>{user.assignedFacultyRegistrationNumber || '-'}</TableCell>}
+                {isFaculty && (
+                  <TableCell>
+                    {user.isCoordinator ? (
+                      <span className="inline-flex items-center rounded-full bg-brand-100 px-2.5 py-0.5 text-xs font-semibold text-brand-700">
+                        Yes
+                      </span>
+                    ) : (
+                      <span className="text-slateish-400">No</span>
+                    )}
+                  </TableCell>
+                )}
                 <TableCell>
-                  <div className="flex gap-2">
-                    <Button variant="subtle" onClick={() => onEditClick(user)}>Edit</Button>
-                    <Button variant="destructive" onClick={() => onDelete(user.internalId || user.id)}>
+                  <div className="flex gap-2 text-right">
+                    <button 
+                      onClick={() => onEditClick(user)}
+                      className="text-brand-600 hover:text-brand-800 font-semibold text-sm transition"
+                    >
+                      Edit
+                    </button>
+                    <button 
+                      onClick={() => onDelete(user.id)}
+                      className="text-red-500 hover:text-red-700 font-semibold text-sm transition"
+                    >
                       Delete
-                    </Button>
+                    </button>
                   </div>
                 </TableCell>
               </TableRow>
             ))}
-            {users.length === 0 && !loading && !searching && (
+            {users.length === 0 && (
               <tr>
-                <TableCell colSpan={13} className="py-4 text-center text-slateish-500">
-                  No users found.
+                <TableCell colSpan={10} className="py-8 text-center text-slateish-500">
+                  No {currentRole}s found.
                 </TableCell>
               </tr>
             )}

@@ -1,9 +1,7 @@
 import { isDatabaseConnected } from '../config/db.js'
 import { UserProfile } from '../models/UserProfile.js'
-import { LocalCredential } from '../models/LocalCredential.js'
 import { EnumConfig } from '../models/EnumConfig.js'
 import { enumDefaults } from '../services/enumDefaults.js'
-import { hashPassword } from '../services/passwordService.js'
 import { ensureDb, parsePagination } from '../lib/helpers.js'
 
 function buildSearchFilter(search) {
@@ -12,48 +10,34 @@ function buildSearchFilter(search) {
   return {
     $or: [
       { registrationNumber: regex },
-      { externalId: regex },
-      { name: regex },
+      { firstName: regex },
+      { lastName: regex },
       { email: regex },
       { phone: regex },
       { department: regex },
       { branch: regex },
       { semester: regex },
-      { graduationYear: regex },
       { role: regex },
     ],
   }
 }
 
-function normalizeUser(document, credentialByUserId) {
-  const credential = credentialByUserId?.get(String(document._id))
+function normalizeUser(document) {
   return {
-    id: document.registrationNumber || document.externalId,
-    internalId: document.externalId,
-    name: document.name,
+    id: document.registrationNumber,
+    registrationNumber: document.registrationNumber,
+    firstName: document.firstName,
+    lastName: document.lastName || null,
     role: document.role,
-    authSource: document.authSource || 'local',
-    username: credential?.username || null,
-    mustResetPassword: Boolean(credential?.mustResetPassword),
+    keycloakId: document.keycloakId || null,
     email: document.email,
     phone: document.phone,
     department: document.department,
     branch: document.branch,
     semester: document.semester,
-    graduationYear: document.graduationYear,
-    enrollmentDate: document.enrollmentDate ? document.enrollmentDate.toISOString() : null,
-    dateOfJoining: document.dateOfJoining ? document.dateOfJoining.toISOString() : null,
-    coordinatorSince: document.coordinatorSince ? document.coordinatorSince.toISOString() : null,
-    adminSince: document.adminSince ? document.adminSince.toISOString() : null,
     assignedFacultyRegistrationNumber: document.assignedFacultyRegistrationNumber || null,
     isCoordinator: document.isCoordinator || false,
   }
-}
-
-async function findCredentialForProfile(profile) {
-  return LocalCredential.findOne({
-    $or: [{ userId: profile._id }, { userExternalId: profile.externalId }],
-  }).lean()
 }
 
 async function getEnumValues(key) {
@@ -63,66 +47,34 @@ async function getEnumValues(key) {
   return doc.options
 }
 
-async function buildUserPayload(body, { isCreate }) {
-  const registrationNumber = String(body.id || body.registrationNumber || '').trim()
+async function buildUserPayload(body) {
+  const firstName = String(body.firstName || '').trim()
+  const lastName = body.lastName ? String(body.lastName).trim() : null
+
   const payload = {
-    registrationNumber,
-    externalId: body.internalId ? String(body.internalId).trim() : null,
-    name: String(body.name || '').trim(),
+    registrationNumber: body.id ? String(body.id).trim() : (body.registrationNumber ? String(body.registrationNumber).trim() : null),
+    firstName,
+    lastName,
     role: String(body.role || '').trim(),
-    authSource: String(body.authSource || 'local').trim().toLowerCase(),
-    username: body.username ? String(body.username).trim() : null,
-    password: body.password ? String(body.password) : null,
-    forcePasswordReset:
-      body.forcePasswordReset === undefined
-        ? null
-        : body.forcePasswordReset === true ||
-        body.forcePasswordReset === 'true' ||
-        body.forcePasswordReset === 1 ||
-        body.forcePasswordReset === '1',
     email: body.email ? String(body.email).trim() : null,
     phone: body.phone ? String(body.phone).trim() : null,
     department: body.department ? String(body.department).trim() : null,
     branch: body.branch ? String(body.branch).trim() : null,
     semester: body.semester ? String(body.semester).trim() : null,
-    graduationYear: body.graduationYear ? String(body.graduationYear).trim() : null,
-    enrollmentDate: body.enrollmentDate ? new Date(body.enrollmentDate) : null,
-    dateOfJoining: body.dateOfJoining ? new Date(body.dateOfJoining) : null,
-    coordinatorSince: body.coordinatorSince ? new Date(body.coordinatorSince) : null,
-    adminSince: body.adminSince ? new Date(body.adminSince) : null,
     assignedFacultyRegistrationNumber: body.assignedFacultyRegistrationNumber
       ? String(body.assignedFacultyRegistrationNumber).trim()
       : null,
     isCoordinator: body.isCoordinator === true || body.isCoordinator === 'true',
   }
 
-  if (!payload.registrationNumber || !payload.name || !payload.role) {
-    return { error: 'registration number, name and role are required.' }
+  if (!payload.registrationNumber || !payload.firstName || !payload.role) {
+    return { error: 'registration number, first name and role are required.' }
   }
 
-  const [allowedRoles, allowedAuthSources] = await Promise.all([
-    getEnumValues('roles'),
-    getEnumValues('authSources'),
-  ])
+  const allowedRoles = await getEnumValues('roles')
 
   if (!allowedRoles.includes(payload.role)) {
     return { error: 'Invalid role.' }
-  }
-
-  if (!allowedAuthSources.includes(payload.authSource)) {
-    return { error: 'Invalid authSource. Use local or keycloak.' }
-  }
-
-  if (payload.authSource === 'local') {
-    if (!payload.username) {
-      return { error: 'username is required for local auth users.' }
-    }
-    if (isCreate && !payload.password) {
-      return { error: 'password is required for new local auth users.' }
-    }
-    if (payload.password && payload.password.length < 8) {
-      return { error: 'password must be at least 8 characters.' }
-    }
   }
 
   return { payload }
@@ -134,9 +86,9 @@ export async function getAdminStats(req, res) {
   if (!ensureDb(res)) return
 
   const [students, faculty, admins, totalUsers] = await Promise.all([
-    UserProfile.countDocuments({ role: 'Student' }),
-    UserProfile.countDocuments({ role: 'Faculty' }),
-    UserProfile.countDocuments({ role: 'Master Admin' }),
+    UserProfile.countDocuments({ role: 'student' }),
+    UserProfile.countDocuments({ role: 'faculty' }),
+    UserProfile.countDocuments({ role: 'admin' }),
     UserProfile.countDocuments({}),
   ])
 
@@ -149,11 +101,10 @@ export async function listUsers(req, res) {
   const {
     search = '',
     semester = '',
-    graduationYear = '',
     department = '',
     branch = '',
     role = '',
-    sortBy = 'name',
+    sortBy = 'firstName',
     sortOrder = 'asc',
   } = req.query
   const { page, pageSize, skip } = parsePagination(req.query)
@@ -163,14 +114,13 @@ export async function listUsers(req, res) {
   }
 
   if (semester) filter.semester = semester
-  if (graduationYear) filter.graduationYear = graduationYear
   if (department) filter.department = department
   if (branch) filter.branch = branch
   
   if (role && role !== 'all') filter.role = role
 
-  const allowedSort = new Set(['name', 'semester', 'graduationYear', 'role', 'registrationNumber'])
-  const sortField = allowedSort.has(sortBy) ? sortBy : 'name'
+  const allowedSort = new Set(['firstName', 'lastName', 'semester', 'role', 'registrationNumber'])
+  const sortField = allowedSort.has(sortBy) ? sortBy : 'firstName'
   const sortDir = sortOrder === 'desc' ? -1 : 1
 
   const [users, total] = await Promise.all([
@@ -182,28 +132,8 @@ export async function listUsers(req, res) {
     UserProfile.countDocuments(filter),
   ])
 
-  const userIds = users.map((user) => user._id)
-  const externalIds = users.map((user) => user.externalId)
-  const credentials = await LocalCredential.find({
-    $or: [{ userId: { $in: userIds } }, { userExternalId: { $in: externalIds } }],
-  })
-    .select({ userId: 1, userExternalId: 1, username: 1, mustResetPassword: 1, _id: 0 })
-    .lean()
-
-  const externalIdByMongoId = new Map(users.map((user) => [user.externalId, String(user._id)]))
-  const credentialByUserId = new Map()
-  credentials.forEach((item) => {
-    if (item.userId) {
-      credentialByUserId.set(String(item.userId), item)
-      return
-    }
-    if (item.userExternalId && externalIdByMongoId.has(item.userExternalId)) {
-      credentialByUserId.set(externalIdByMongoId.get(item.userExternalId), item)
-    }
-  })
-
   return res.json({
-    users: users.map((user) => normalizeUser(user, credentialByUserId)),
+    users: users.map((user) => normalizeUser(user)),
     pagination: {
       page,
       pageSize,
@@ -216,74 +146,41 @@ export async function listUsers(req, res) {
 export async function createUser(req, res) {
   if (!ensureDb(res)) return
 
-  const { payload, error } = await buildUserPayload(req.body, { isCreate: true })
+  const { payload, error } = await buildUserPayload(req.body)
   if (error) return res.status(400).json({ error })
 
-  const existingProfileByReg = await UserProfile.findOne({
-    registrationNumber: payload.registrationNumber,
-  }).lean()
-  if (existingProfileByReg) {
-    return res.status(409).json({ error: 'Registration number already exists.' })
-  }
+  const created = await UserProfile.findOneAndUpdate(
+    { registrationNumber: payload.registrationNumber },
+    {
+      role: payload.role,
+      firstName: payload.firstName,
+      lastName: payload.lastName,
+      email: payload.email,
+      phone: payload.phone,
+      department: payload.department,
+      branch: payload.branch,
+      semester: payload.semester,
+      assignedFacultyRegistrationNumber: payload.assignedFacultyRegistrationNumber,
+      isCoordinator: payload.isCoordinator,
+    },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  )
 
-  if (payload.authSource === 'local') {
-    const existingUsername = await LocalCredential.findOne({ username: payload.username }).lean()
-    if (existingUsername) {
-      return res.status(409).json({ error: 'Username already exists.' })
-    }
-  }
-
-  const created = await UserProfile.create({
-    externalId:
-      payload.externalId ||
-      `${payload.authSource === 'local' ? 'LOCAL' : 'AUTH'}-${payload.registrationNumber}`,
-    registrationNumber: payload.registrationNumber,
-    role: payload.role,
-    name: payload.name,
-    email: payload.email,
-    phone: payload.phone,
-    department: payload.department,
-    branch: payload.branch,
-    semester: payload.semester,
-    graduationYear: payload.graduationYear,
-    enrollmentDate: payload.enrollmentDate,
-    dateOfJoining: payload.dateOfJoining,
-    coordinatorSince: payload.coordinatorSince,
-    adminSince: payload.adminSince,
-    assignedFacultyRegistrationNumber: payload.assignedFacultyRegistrationNumber,
-    authSource: payload.authSource,
-    isCoordinator: payload.isCoordinator,
-  })
-
-  if (payload.authSource === 'local') {
-    await LocalCredential.create({
-      userId: created._id,
-      userExternalId: created.externalId,
-      username: payload.username,
-      passwordHash: hashPassword(payload.password),
-      mustResetPassword: payload.forcePasswordReset ?? true,
-      passwordUpdatedAt: new Date(),
-    })
-  }
-
-  return res.status(201).json({ user: normalizeUser(created, new Map()) })
+  return res.status(201).json({ user: normalizeUser(created) })
 }
 
 export async function updateUser(req, res) {
   if (!ensureDb(res)) return
 
   const userIdentifier = req.params.id
-  const existingProfile = await UserProfile.findOne({
-    $or: [{ registrationNumber: userIdentifier }, { externalId: userIdentifier }],
-  }).lean()
+  const existingProfile = await UserProfile.findOne({ registrationNumber: userIdentifier }).lean()
 
   if (!existingProfile) {
     return res.status(404).json({ error: 'User not found.' })
   }
 
   const { payload, error } = await buildUserPayload(
-    { ...req.body, id: req.body?.id || existingProfile.registrationNumber },
-    { isCreate: false }
+    { ...req.body, id: req.body?.registrationNumber || existingProfile.registrationNumber }
   )
   if (error) return res.status(400).json({ error })
 
@@ -295,113 +192,41 @@ export async function updateUser(req, res) {
     return res.status(409).json({ error: 'Registration number already exists.' })
   }
 
-  const existingCredential = await findCredentialForProfile(existingProfile)
-
-  if (payload.authSource === 'local') {
-    if (!payload.username && !existingCredential) {
-      return res.status(400).json({ error: 'username is required for local auth users.' })
-    }
-
-    if (payload.username) {
-      const sameUsernameOnAnother = await LocalCredential.findOne({
-        username: payload.username,
-        userId: { $ne: existingProfile._id },
-      }).lean()
-      if (sameUsernameOnAnother) {
-        return res.status(409).json({ error: 'Username already exists.' })
-      }
-    }
-
-    const updateSet = {}
-    if (payload.username) updateSet.username = payload.username
-    if (payload.password) updateSet.passwordHash = hashPassword(payload.password)
-    if (payload.forcePasswordReset === true || payload.password) updateSet.mustResetPassword = true
-    if (payload.forcePasswordReset === false && !payload.password) updateSet.mustResetPassword = false
-    if (payload.password) updateSet.passwordUpdatedAt = new Date()
-
-    if (existingCredential) {
-      const selector = existingCredential.userId
-        ? { userId: existingProfile._id }
-        : { userExternalId: existingProfile.externalId }
-      if (Object.keys(updateSet).length > 0) {
-        await LocalCredential.updateOne(selector, {
-          $set: {
-            ...updateSet,
-            userId: existingProfile._id,
-            userExternalId: existingProfile.externalId,
-          },
-        })
-      }
-    } else {
-      await LocalCredential.create({
-        userId: existingProfile._id,
-        userExternalId: existingProfile.externalId,
-        username: payload.username,
-        passwordHash: hashPassword(payload.password || 'ChangeMe@123'),
-        mustResetPassword: payload.forcePasswordReset ?? true,
-        passwordUpdatedAt: new Date(),
-      })
-    }
-  } else {
-    await LocalCredential.deleteOne({
-      $or: [{ userId: existingProfile._id }, { userExternalId: existingProfile.externalId }],
-    })
-  }
-
   const updated = await UserProfile.findOneAndUpdate(
     { _id: existingProfile._id },
     {
       role: payload.role,
-      name: payload.name,
+      firstName: payload.firstName,
+      lastName: payload.lastName,
       registrationNumber: payload.registrationNumber,
       email: payload.email,
       phone: payload.phone,
       department: payload.department,
       branch: payload.branch,
       semester: payload.semester,
-      graduationYear: payload.graduationYear,
-      enrollmentDate: payload.enrollmentDate,
-      dateOfJoining: payload.dateOfJoining,
-      coordinatorSince: payload.coordinatorSince,
-      adminSince: payload.adminSince,
       assignedFacultyRegistrationNumber: payload.assignedFacultyRegistrationNumber,
-      authSource: payload.authSource,
       isCoordinator: payload.isCoordinator,
     },
     { new: true }
   ).lean()
 
-  const credential = await LocalCredential.findOne({
-    $or: [{ userId: existingProfile._id }, { userExternalId: existingProfile.externalId }],
-  })
-    .select({ userId: 1, userExternalId: 1, username: 1, mustResetPassword: 1, _id: 0 })
-    .lean()
-
-  return res.json({
-    user: normalizeUser(updated, new Map(credential ? [[String(existingProfile._id), credential]] : [])),
-  })
+  return res.json({ user: normalizeUser(updated) })
 }
 
 export async function deleteUser(req, res) {
   if (!ensureDb(res)) return
 
   const userIdentifier = req.params.id
-  const target = await UserProfile.findOne({
-    $or: [{ registrationNumber: userIdentifier }, { externalId: userIdentifier }],
-  }).lean()
+  const target = await UserProfile.findOne({ registrationNumber: userIdentifier }).lean()
 
   if (!target) {
     return res.status(404).json({ error: 'User not found.' })
   }
 
-  if (req.user?.id === target.externalId) {
+  if (req.user?.registrationNumber === target.registrationNumber) {
     return res.status(400).json({ error: 'You cannot delete your own account.' })
   }
 
-  const deleted = await UserProfile.findByIdAndDelete(target._id).lean()
-
-  await LocalCredential.deleteOne({
-    $or: [{ userId: deleted._id }, { userExternalId: deleted.externalId }],
-  })
+  await UserProfile.findByIdAndDelete(target._id)
   return res.status(204).send()
 }

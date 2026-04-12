@@ -12,7 +12,7 @@ export default function PhaseReview({ user }) {
   const [feedback, setFeedback] = useState('')
   const [editData, setEditData] = useState({})
   
-  const isCoordinator = user?.role === 'Faculty Coordinator' || user?.role === 'Master Admin'
+  const isCoordinator = user?.role === 'Faculty Coordinator' || user?.role === 'admin'
 
   useEffect(() => {
     async function loadData() {

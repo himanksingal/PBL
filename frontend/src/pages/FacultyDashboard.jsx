@@ -87,7 +87,7 @@ export default function FacultyDashboard({ role, user }) {
       <div className="rounded-xl border border-slateish-200 bg-white p-6 shadow-soft">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-xl font-semibold text-slateish-700">Welcome, {user?.name || 'Faculty'}</h1>
+            <h1 className="text-xl font-semibold text-slateish-700">Welcome, {user ? `${user.firstName} ${user.lastName || ''}`.trim() : 'faculty'}</h1>
             <p className="mt-1 text-sm text-slateish-500">
               Assigned students: {rows.length}. Track form completion and review submissions.
             </p>
@@ -130,7 +130,7 @@ export default function FacultyDashboard({ role, user }) {
                 key={`status-${row.student.id}`}
                 className="rounded-lg border border-slateish-200 bg-slateish-50 px-3 py-3 transition hover:border-brand-300"
               >
-                <div className="text-sm font-semibold text-slateish-700">{row.student.name}</div>
+                <div className="text-sm font-semibold text-slateish-700">{`${row.student.firstName} ${row.student.lastName || ''}`.trim()}</div>
                 <div className="text-xs text-slateish-500">{row.student.id}</div>
                 <div className="mt-2">
                   <span
@@ -173,7 +173,7 @@ export default function FacultyDashboard({ role, user }) {
                 {rows.map((row) => (
                   <tr key={row.student.id} className="border-b border-slateish-200">
                     <td className="px-3 py-2">{row.student.id}</td>
-                    <td className="px-3 py-2">{row.student.name}</td>
+                    <td className="px-3 py-2">{`${row.student.firstName} ${row.student.lastName || ''}`.trim()}</td>
                     <td className="px-3 py-2">{row.student.semester || '-'}</td>
                     <td className="px-3 py-2">
                       {row.latestSubmission?.projectName || row.latestSubmission?.companyName || '-'}

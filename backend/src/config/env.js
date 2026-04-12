@@ -24,4 +24,6 @@ export const env = {
   bootstrapAdminPhone: process.env.LOCAL_BOOTSTRAP_ADMIN_PHONE || '',
   bootstrapAdminUsername: process.env.LOCAL_BOOTSTRAP_ADMIN_USERNAME || '',
   bootstrapAdminPassword: process.env.LOCAL_BOOTSTRAP_ADMIN_PASSWORD || '',
+  keycloakAdminClientId: process.env.KEYCLOAK_ADMIN_CLIENT_ID || '',
+  keycloakAdminClientSecret: process.env.KEYCLOAK_ADMIN_CLIENT_SECRET || '',
 }

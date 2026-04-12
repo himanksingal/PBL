@@ -23,7 +23,7 @@ export default function AdminHome({ user }) {
     <div className="space-y-6 px-6 py-4">
       <div className="rounded-xl border border-slateish-200 bg-white p-6 shadow-soft">
         <h1 className="text-2xl font-semibold text-slateish-700">
-          Welcome, {user?.name || 'Master Admin'}
+          Welcome, {user ? `${user.firstName} ${user.lastName || ''}`.trim() : 'admin'}
         </h1>
         <p className="mt-2 text-sm text-slateish-500">
           Manage users, roles, and academic metadata from one place.

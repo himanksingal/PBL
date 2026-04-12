@@ -4,7 +4,7 @@ export default function PhaseConfigPage({ user }) {
   const [configs, setConfigs] = useState([])
   const [loading, setLoading] = useState(true)
 
-  const isAdmin = user?.role === 'Master Admin'
+  const isAdmin = user?.role === 'admin'
 
   useEffect(() => {
     async function loadData() {

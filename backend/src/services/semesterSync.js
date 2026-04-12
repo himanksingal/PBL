@@ -34,7 +34,7 @@ export function computeSemester(enrollmentDate) {
 
 export async function syncAllStudentSemesters() {
   try {
-    const students = await UserProfile.find({ role: 'Student' })
+    const students = await UserProfile.find({ role: 'student' })
     let updatedCount = 0
 
     for (const student of students) {

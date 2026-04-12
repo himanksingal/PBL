@@ -79,7 +79,7 @@ export default function StudentDashboard({ user }) {
           <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div className="rounded-lg bg-slateish-50 p-3">
               <div className="text-xs text-slateish-500">Name</div>
-              <div className="text-sm font-semibold text-slateish-700">{assignedFaculty.name}</div>
+              <div className="text-sm font-semibold text-slateish-700">{`${assignedFaculty.firstName} ${assignedFaculty.lastName || ''}`.trim()}</div>
             </div>
             <div className="rounded-lg bg-slateish-50 p-3">
               <div className="text-xs text-slateish-500">Registration No.</div>

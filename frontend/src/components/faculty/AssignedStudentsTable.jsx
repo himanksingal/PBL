@@ -14,7 +14,7 @@ export default function AssignedStudentsTable({
       <div className="mb-4">
         <h2 className="text-base font-semibold text-brand-700">Assigned Students</h2>
         <p className="text-xs text-slateish-500">
-          {selectedFaculty ? `Assigned to ${selectedFaculty.name}` : 'Select a faculty member'}
+          {selectedFaculty ? `Assigned to ${selectedFaculty.firstName} ${selectedFaculty.lastName || ''}`.trim() : 'Select a faculty member'}
         </p>
       </div>
 
@@ -42,7 +42,7 @@ export default function AssignedStudentsTable({
             className="flex items-center px-3 py-2 border-b border-brand-100 text-xs bg-white hover:bg-brand-50/30 transition group"
           >
             <div className="w-44 shrink-0 font-medium text-brand-700 truncate pr-2">{student.registrationNumber}</div>
-            <div className="flex-1 min-w-0 font-semibold text-slateish-800 truncate pr-2">{student.name}</div>
+            <div className="flex-1 min-w-0 font-semibold text-slateish-800 truncate pr-2">{`${student.firstName} ${student.lastName || ''}`.trim()}</div>
             <div className="w-10 shrink-0 text-right">
               <button 
                 onClick={() => handleRemoveStudent(student)}

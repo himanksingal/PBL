@@ -21,7 +21,9 @@ const app = express()
 
 app.use(
   cors({
-    origin: env.frontendUrl,
+    origin: env.nodeEnv === 'production'
+      ? env.frontendUrl
+      : [env.frontendUrl, 'http://localhost:5173', 'http://localhost:3000'],
     credentials: true,
   })
 )

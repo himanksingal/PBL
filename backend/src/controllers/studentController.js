@@ -151,7 +151,7 @@ export async function getAssignedFacultyForStudent(req, res) {
 
   const faculty = await UserProfile.findOne({
     registrationNumber: assignedFacultyRegistrationNumber,
-    role: 'Faculty',
+    role: 'faculty',
   }).lean()
 
   if (!faculty) {
@@ -160,7 +160,8 @@ export async function getAssignedFacultyForStudent(req, res) {
 
   return res.json({
     assignedFaculty: {
-      name: faculty.name,
+      firstName: faculty.firstName,
+      lastName: faculty.lastName,
       registrationNumber: faculty.registrationNumber,
       email: faculty.email || null,
       phone: faculty.phone || null,

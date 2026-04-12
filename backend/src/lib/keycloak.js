@@ -86,9 +86,24 @@ export async function exchangeCodeForTokens(code) {
   return response.json()
 }
 
-export function decodeJwtPayload(token) {
-  const payload = token.split('.')[1]
-  if (!payload) return null
-  const json = Buffer.from(payload, 'base64url').toString('utf-8')
-  return JSON.parse(json)
+export async function refreshAccessToken(refreshToken) {
+  const response = await fetch(`${baseUrl()}/token`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: new URLSearchParams({
+      grant_type: 'refresh_token',
+      client_id: env.keycloakClientId,
+      client_secret: env.keycloakClientSecret,
+      refresh_token: refreshToken,
+    }),
+  })
+
+  if (!response.ok) {
+    const body = await response.text()
+    throw new Error(`Keycloak token refresh failed: ${body}`)
+  }
+
+  return response.json()
 }

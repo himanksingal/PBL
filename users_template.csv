@@ -1,0 +1,10 @@
+registrationNumber,firstName,lastName,email,role,branch,department,semester,phone,password,isCoordinator
+
+23FE10CSE001,Rahul,Sharma,rahul1@uni.edu,student,cse,FOE,5,9876543210,Pass@123,false
+23FE10CSE002,Ananya,Verma,ananya2@uni.edu,student,cse,FOE,5,9876543211,Pass@123,false
+23FE10CSE003,Aman,Gupta,aman3@uni.edu,student,cse,FOE,5,9876543212,Pass@123,false
+
+23FE00001,Rakesh,Mehta,rakesh@uni.edu,faculty,cse,FOE,,9876500001,Pass@123,true
+23FE00002,Neha,Kapoor,neha@uni.edu,faculty,cse,FOE,,9876500002,Pass@123,false
+
+ADM001,System,Admin,admin@uni.edu,admin,,Administration,,9999999999,Admin@123,true

@@ -15,11 +15,14 @@ const router = Router()
 router.use(authenticate)
 router.use(requirePermission('manage-users'))
 
-router.get('/stats', getAdminStats)
+// Single user operations
 router.get('/users', listUsers)
 router.post('/users', createUser)
 router.put('/users/:id', updateUser)
 router.delete('/users/:id', deleteUser)
+
+// Metadata operations
+router.get('/stats', getAdminStats)
 router.put('/enums', updateEnums)
 
 export default router

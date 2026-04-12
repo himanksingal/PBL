@@ -1,29 +1,17 @@
-import { issueToken } from '../services/tokenService.js'
 import { env } from '../config/env.js'
 import { isDatabaseConnected } from '../config/db.js'
-import { rolePermissions } from '../services/permissions.js'
 import { UserProfile } from '../models/UserProfile.js'
-import { LocalCredential } from '../models/LocalCredential.js'
-import { hashPassword, verifyPassword } from '../services/passwordService.js'
 import {
   buildAuthorizationUrl,
   buildLogoutUrl,
   consumeState,
   createLoginState,
-  decodeJwtPayload,
   exchangeCodeForTokens,
   keycloakEnabled,
+  refreshAccessToken,
   registerState,
 } from '../lib/keycloak.js'
-
-function mapKeycloakRole(claims) {
-  const roleList = claims?.realm_access?.roles || []
-  console.log('[keycloak] realm roles received:', roleList)
-  if (roleList.includes('master-admin')) return { role: 'Master Admin', isCoordinator: false }
-  if (roleList.includes('faculty-coordinator')) return { role: 'Faculty', isCoordinator: true }
-  if (roleList.includes('faculty')) return { role: 'Faculty', isCoordinator: false }
-  return { role: 'Student', isCoordinator: false }
-}
+import { decodeTokenUnsafe } from '../services/tokenService.js'
 
 function setSessionCookie(res, token) {
   res.cookie('app_session', token, {
@@ -45,13 +33,23 @@ function setKeycloakIdTokenCookie(res, idToken) {
   })
 }
 
+function setRefreshTokenCookie(res, refreshToken) {
+  res.cookie('kc_refresh', refreshToken, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: env.cookieSecure,
+    maxAge: 8 * 60 * 60 * 1000,
+    path: '/',
+  })
+}
+
 function toUserPayload(profile) {
   return {
-    id: profile.registrationNumber || profile.externalId,
-    internalId: profile.externalId,
-    registrationNumber: profile.registrationNumber || profile.externalId,
+    id: profile.registrationNumber,
+    registrationNumber: profile.registrationNumber,
     role: profile.role,
-    name: profile.name,
+    firstName: profile.firstName,
+    lastName: profile.lastName || null,
     email: profile.email || null,
     phone: profile.phone || null,
     department: profile.department || null,
@@ -62,252 +60,131 @@ function toUserPayload(profile) {
   }
 }
 
-async function upsertUserProfile(user, authSource) {
-  if (!isDatabaseConnected()) return user
-
-  const profile = await UserProfile.findOneAndUpdate(
-    { externalId: user.id },
-    {
-      authSource,
-      role: user.role,
-      isCoordinator: user.isCoordinator || false,
-      externalId: user.id,
-      registrationNumber: user.registrationNumber || user.id,
-      name: user.name,
-      email: user.email || null,
-      phone: user.phone || null,
-      department: user.department || null,
-      branch: user.branch || null,
-      semester: user.semester || null,
-      graduationYear: user.graduationYear || null,
-    },
-    { upsert: true, new: true, setDefaultsOnInsert: true }
-  ).lean()
-
-  return toUserPayload(profile)
-}
+// ─────────────────────────────────────────────
+// LOCAL AUTHENTICATION (DISABLED)
+// ─────────────────────────────────────────────
 
 export async function login(req, res) {
-  if (!env.localLoginEnabled) {
-    return res.status(403).json({ error: 'Local login disabled. Use Keycloak sign in.' })
-  }
-
-  if (!isDatabaseConnected()) {
-    return res.status(503).json({
-      error: 'Database unavailable. Local auth requires MongoDB. Use Keycloak or restore DB.',
-    })
-  }
-
-  const { username, password } = req.body
-  if (!username || !password) {
-    return res.status(400).json({ error: 'Username and password are required.' })
-  }
-
-  const credential = await LocalCredential.findOne({ username: String(username).trim() }).lean()
-  if (!credential || !verifyPassword(password, credential.passwordHash)) {
-    return res.status(401).json({ error: 'Invalid credentials.' })
-  }
-
-  if (credential.mustResetPassword) {
-    return res.status(428).json({
-      error: 'Password reset required before first login.',
-      requiresPasswordReset: true,
-      username: credential.username,
-    })
-  }
-
-  let profile = null
-  if (credential.userId) {
-    profile = await UserProfile.findById(credential.userId).lean()
-  } else if (credential.userExternalId) {
-    // legacy fallback path for old credential records
-    profile = await UserProfile.findOne({ externalId: credential.userExternalId }).lean()
-    if (profile) {
-      await LocalCredential.updateOne(
-        { username: credential.username },
-        { $set: { userId: profile._id, userExternalId: profile.externalId } }
-      )
-    }
-  }
-  if (!profile) {
-    return res.status(401).json({ error: 'User profile not found for this account.' })
-  }
-
-  const user = toUserPayload(profile)
-  const token = issueToken({
-    role: user.role,
-    isCoordinator: user.isCoordinator,
-    source: 'local',
-    id: profile.externalId,
-    registrationNumber: user.registrationNumber,
-    name: user.name,
-    email: user.email,
-    department: user.department,
-  })
-  setSessionCookie(res, token)
-
-  return res.json({
-    user,
-    permissions: rolePermissions[user.role] || [],
+  return res.status(403).json({
+    error: 'Local login is disabled. Please use Keycloak to continue.',
   })
 }
 
 export async function resetFirstLoginPassword(req, res) {
-  if (!env.localLoginEnabled) {
-    return res.status(403).json({ error: 'Local login disabled. Use Keycloak sign in.' })
-  }
-
-  if (!isDatabaseConnected()) {
-    return res.status(503).json({ error: 'Database unavailable.' })
-  }
-
-  const { username, currentPassword, newPassword } = req.body
-  if (!username || !currentPassword || !newPassword) {
-    return res
-      .status(400)
-      .json({ error: 'username, currentPassword and newPassword are required.' })
-  }
-
-  if (String(newPassword).length < 8) {
-    return res.status(400).json({ error: 'New password must be at least 8 characters.' })
-  }
-
-  const credential = await LocalCredential.findOne({ username: String(username).trim() })
-  if (!credential || !verifyPassword(currentPassword, credential.passwordHash)) {
-    return res.status(401).json({ error: 'Invalid credentials.' })
-  }
-
-  credential.passwordHash = hashPassword(newPassword)
-  credential.mustResetPassword = false
-  credential.passwordUpdatedAt = new Date()
-  await credential.save()
-
-  let profile = null
-  if (credential.userId) {
-    profile = await UserProfile.findById(credential.userId).lean()
-  } else if (credential.userExternalId) {
-    profile = await UserProfile.findOne({ externalId: credential.userExternalId }).lean()
-  }
-
-  if (!profile) {
-    return res.status(404).json({ error: 'User profile not found for this account.' })
-  }
-
-  const user = toUserPayload(profile)
-  const token = issueToken({
-    role: user.role,
-    isCoordinator: user.isCoordinator,
-    source: 'local',
-    id: profile.externalId,
-    registrationNumber: user.registrationNumber,
-    name: user.name,
-    email: user.email,
-    department: user.department,
-  })
-  setSessionCookie(res, token)
-
-  return res.json({
-    user,
-    permissions: rolePermissions[user.role] || [],
+  return res.status(403).json({
+    error: 'Local login is disabled. Please use Keycloak to continue.',
   })
 }
 
+// ─────────────────────────────────────────────
+// KEYCLOAK AUTHENTICATION
+// ─────────────────────────────────────────────
+
 export function keycloakLogin(req, res) {
   if (!keycloakEnabled()) {
-    console.error('[keycloak] Login attempted but Keycloak is not configured. Check KEYCLOAK_URL, KEYCLOAK_REALM, KEYCLOAK_CLIENT_ID, KEYCLOAK_CLIENT_SECRET in .env')
     return res.status(503).json({
-      error: 'Keycloak is not configured. Set KEYCLOAK_* values in backend/.env.',
+      error: 'Keycloak is not configured.',
     })
   }
 
   const state = createLoginState()
   registerState(state)
   const url = buildAuthorizationUrl(state)
-
-
   return res.redirect(url)
+}
+
+function mapKeycloakGroupsToRole(groups) {
+  if (!groups || !Array.isArray(groups) || groups.length === 0) return null
+  if (groups.some(g => g.startsWith('/admin'))) return 'admin'
+  if (groups.some(g => g.startsWith('/faculties'))) return 'faculty'
+  if (groups.some(g => g.startsWith('/students'))) return 'student'
+  return null
 }
 
 export async function keycloakCallback(req, res) {
   try {
-    if (!keycloakEnabled()) {
-      console.error('[keycloak] Callback hit but Keycloak is not configured')
-      return res.status(503).send('Keycloak not configured.')
-    }
+    if (!keycloakEnabled()) return res.status(503).send('Keycloak not configured.')
 
     const { code, state, error: kcError, error_description } = req.query
 
-    // Keycloak can redirect back with an error instead of a code
     if (kcError) {
-      console.error(`[keycloak] Auth error from Keycloak: ${kcError} - ${error_description || ''}`)
+      console.error(`[keycloak] Auth error: ${kcError} - ${error_description || ''}`)
       return res.redirect(`${env.frontendUrl}/login?error=${encodeURIComponent(kcError)}`)
     }
 
-    if (!code || !state) {
-      console.error('[keycloak] Missing code or state in callback query:', req.query)
-      return res.status(400).send('Invalid keycloak callback — missing code or state.')
+    if (!code || !state || !consumeState(state)) {
+      return res.status(400).send('Invalid keycloak callback — missing or expired state/code.')
     }
-
-    if (!consumeState(state)) {
-      console.error('[keycloak] Invalid or expired state:', state)
-      return res.status(400).send('Invalid keycloak callback — state expired or unknown.')
-    }
-
 
     const tokenData = await exchangeCodeForTokens(code)
 
-    // Decode access_token for roles (realm_access lives here)
-    // Decode id_token for profile info (name, email, etc.)
-    const accessClaims = tokenData.access_token ? decodeJwtPayload(tokenData.access_token) : null
-    const idClaims = tokenData.id_token ? decodeJwtPayload(tokenData.id_token) : null
+    const accessClaims = tokenData.access_token ? decodeTokenUnsafe(tokenData.access_token) : null
+    const idClaims = tokenData.id_token ? decodeTokenUnsafe(tokenData.id_token) : null
     const claims = idClaims || accessClaims
 
-    if (!claims) {
-      console.error('[keycloak] Failed to decode any JWT payload')
-      return res.status(400).send('Unable to decode keycloak token.')
+    if (!claims) return res.status(400).send('Unable to parse keycloak token.')
+
+    const keycloakId = claims.sub
+    const registrationNumber = claims.registration_number || claims.registrationNumber || claims.preferred_username || keycloakId
+
+    // Resolve role from Keycloak groups (returns null if no groups match)
+    const groupRole = mapKeycloakGroupsToRole(accessClaims?.groups || claims.groups)
+
+    if (isDatabaseConnected()) {
+      // Build lookup conditions — only include keycloakId when it's valid
+      const lookupConditions = []
+      if (keycloakId) lookupConditions.push({ keycloakId })
+      lookupConditions.push({ registrationNumber: new RegExp(`^${registrationNumber.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') })
+
+      const existingProfile = await UserProfile.findOne({
+        $or: lookupConditions
+      }).lean()
+
+      // Diagnostic logging
+      console.log(`[keycloak] Callback lookup: keycloakId=${keycloakId}, registrationNumber=${registrationNumber}`)
+      if (existingProfile) {
+        console.log(`[keycloak] Matched profile: registrationNumber=${existingProfile.registrationNumber}, role=${existingProfile.role}, keycloakId=${existingProfile.keycloakId || 'NOT SET'}`)
+      }
+
+      if (!existingProfile) {
+        console.warn(`[keycloak] Callback: user not found for keycloakId=${keycloakId} registrationNumber=${registrationNumber}`)
+        return res.redirect(`${env.frontendUrl}/login?error=${encodeURIComponent('user_not_found')}`)
+      }
+
+      // Safety check: if this keycloakId is already linked to a DIFFERENT profile, don't overwrite
+      if (existingProfile.keycloakId && existingProfile.keycloakId !== keycloakId) {
+        console.warn(`[keycloak] Profile ${existingProfile.registrationNumber} is linked to a different keycloakId (${existingProfile.keycloakId}), not linking ${keycloakId}`)
+      }
+
+      // Lazy-link keycloakId if missing (only if we have a valid keycloakId)
+      const updates = {}
+      if (keycloakId && !existingProfile.keycloakId) {
+        updates.keycloakId = keycloakId
+        console.log(`[keycloak] Lazy-linked keycloakId=${keycloakId} to registrationNumber=${existingProfile.registrationNumber}`)
+      }
+
+      // Override role only if Keycloak groups explicitly resolve one
+      if (groupRole) {
+        updates.role = groupRole
+      }
+
+      if (Object.keys(updates).length > 0) {
+        await UserProfile.updateOne({ _id: existingProfile._id }, { $set: updates })
+      }
     }
 
-
-    // Use access_token for role mapping (Keycloak puts realm_access there, not in id_token)
-    const roleMap = mapKeycloakRole(accessClaims || claims)
-    const user = {
-      id: claims.sub,
-      registrationNumber:
-        claims.registration_number || claims.registrationNumber || claims.preferred_username || claims.sub,
-      role: roleMap.role,
-      isCoordinator: roleMap.isCoordinator,
-      name: claims.name || claims.preferred_username || 'User',
-      email: claims.email || null,
-      phone: claims.phone_number || null,
-      department: claims.department || null,
-      branch: claims.branch || null,
-      semester: claims.semester || null,
-      graduationYear: claims.graduationYear || null,
+    // Set Keycloak tokens directly — no custom JWT duplication
+    setSessionCookie(res, tokenData.access_token)
+    if (tokenData.refresh_token) {
+      setRefreshTokenCookie(res, tokenData.refresh_token)
     }
-
-    const profile = await upsertUserProfile(user, 'keycloak')
-
-
-    const appToken = issueToken({
-      role: roleMap.role,
-      isCoordinator: roleMap.isCoordinator,
-      source: 'keycloak',
-      id: profile.internalId || profile.id,
-      registrationNumber: profile.registrationNumber || profile.id,
-      name: profile.name,
-      email: profile.email,
-      department: profile.department,
-    })
-
-    setSessionCookie(res, appToken)
     if (tokenData.id_token) {
       setKeycloakIdTokenCookie(res, tokenData.id_token)
     }
 
-
     return res.redirect(new URL('/home', env.frontendUrl).toString())
   } catch (error) {
-    console.error('[keycloak] Callback error:', error.message, error.stack)
+    console.error('[keycloak] Callback error:', error.message)
     return res.redirect(`${env.frontendUrl}/login?error=${encodeURIComponent(error.message)}`)
   }
 }
@@ -316,10 +193,37 @@ export function logout(req, res) {
   const idToken = req.cookies?.kc_id_token || ''
   res.clearCookie('app_session', { path: '/' })
   res.clearCookie('kc_id_token', { path: '/' })
+  res.clearCookie('kc_refresh', { path: '/' })
 
   if (idToken && keycloakEnabled()) {
     return res.json({ logoutUrl: buildLogoutUrl(idToken) })
   }
 
   return res.status(204).send()
+}
+
+// Called by middleware for silent refresh — also exported for manual refresh endpoint
+export async function refreshSession(req, res) {
+  const refreshToken = req.cookies?.kc_refresh
+  if (!refreshToken) {
+    return res.status(401).json({ error: 'No refresh token available' })
+  }
+
+  try {
+    const tokenData = await refreshAccessToken(refreshToken)
+    setSessionCookie(res, tokenData.access_token)
+    if (tokenData.refresh_token) {
+      setRefreshTokenCookie(res, tokenData.refresh_token)
+    }
+    if (tokenData.id_token) {
+      setKeycloakIdTokenCookie(res, tokenData.id_token)
+    }
+    return res.json({ refreshed: true })
+  } catch (err) {
+    console.warn('[auth] Session refresh failed:', err.message)
+    res.clearCookie('app_session', { path: '/' })
+    res.clearCookie('kc_refresh', { path: '/' })
+    res.clearCookie('kc_id_token', { path: '/' })
+    return res.status(401).json({ error: 'Session expired. Please log in again.' })
+  }
 }

@@ -19,7 +19,7 @@ export default function PhaseEvaluate({ user }) {
   const [loadingForms, setLoadingForms] = useState(false)
   const [formsEditData, setFormsEditData] = useState({})
   
-  const isCoordinator = user?.role === 'Faculty Coordinator' || user?.role === 'Master Admin'
+  const isCoordinator = user?.role === 'Faculty Coordinator' || user?.role === 'admin'
 
   useEffect(() => {
     async function loadData() {
@@ -178,9 +178,11 @@ export default function PhaseEvaluate({ user }) {
             <tbody className="divide-y divide-slateish-200">
               {assignedStudents
                 .filter(row => {
-                  const matchSearch = row.student.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                                      String(row.student.id).toLowerCase().includes(searchQuery.toLowerCase())
-                  const matchSem = semesterFilter === '' || String(row.student.semester) === semesterFilter
+                  const studentName = row.student?.name || 'N/A'
+                  const studentId = row.student?.id || 'Unknown'
+                  const matchSearch = studentName.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                                      String(studentId).toLowerCase().includes(searchQuery.toLowerCase())
+                  const matchSem = semesterFilter === '' || String(row.student?.semester) === semesterFilter
                   return matchSearch && matchSem
                 })
                 .map(row => {
@@ -192,7 +194,7 @@ export default function PhaseEvaluate({ user }) {
                 return (
                   <tr key={stuReg}>
                     <td className="p-3 font-medium">
-                      {row.student.name}
+                      {row.student?.name || 'N/A'}
                       <div className="text-xs text-slateish-500 font-normal mt-0.5">{stuReg}</div>
                     </td>
                     <td className="p-3 text-slateish-600">{row.student.semester}</td>

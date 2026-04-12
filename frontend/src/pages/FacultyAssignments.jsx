@@ -275,25 +275,26 @@ export default function FacultyAssignments() {
            {facultyOpen && (
               <div className="absolute z-10 mt-1 w-full max-h-60 overflow-y-auto bg-white border border-slateish-200 rounded-md shadow-lg">
                 {faculties.filter(fac => 
-                  fac.name.toLowerCase().includes(facultyInputText.toLowerCase()) || 
+                  `${fac.firstName} ${fac.lastName || ''}`.toLowerCase().includes(facultyInputText.toLowerCase()) || 
                   fac.registrationNumber.toLowerCase().includes(facultyInputText.toLowerCase())
                 ).map(fac => (
                   <div 
                     key={fac.registrationNumber}
                     className="px-3 py-2 text-sm hover:bg-slateish-100 cursor-pointer"
                     onClick={() => {
-                      setFacultyInputText(`${fac.name} (${fac.registrationNumber})`)
+                      const fullName = `${fac.firstName} ${fac.lastName || ''}`.trim()
+                      setFacultyInputText(`${fullName} (${fac.registrationNumber})`)
                       setSelectedFacultyRegNo(fac.registrationNumber)
                       setSuccess('')
                       setFacultyOpen(false)
                     }}
                   >
-                    <div className="font-medium text-slateish-700">{fac.name}</div>
+                    <div className="font-medium text-slateish-700">{`${fac.firstName} ${fac.lastName || ''}`.trim()}</div>
                     <div className="text-xs text-slateish-500">{fac.registrationNumber}</div>
                   </div>
                 ))}
                 {faculties.filter(fac => 
-                  fac.name.toLowerCase().includes(facultyInputText.toLowerCase()) || 
+                  `${fac.firstName} ${fac.lastName || ''}`.toLowerCase().includes(facultyInputText.toLowerCase()) || 
                   fac.registrationNumber.toLowerCase().includes(facultyInputText.toLowerCase())
                 ).length === 0 && (
                   <div className="px-3 py-2 text-sm text-slateish-500">No faculty found.</div>

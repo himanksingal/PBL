@@ -1,19 +1,24 @@
 import { env } from '../config/env.js'
 import { isDatabaseConnected } from '../config/db.js'
-import { LocalCredential } from '../models/LocalCredential.js'
 import { UserProfile } from '../models/UserProfile.js'
-import { hashPassword } from './passwordService.js'
 
 export async function ensureBootstrapAdmin() {
   if (!isDatabaseConnected()) return
   if (!env.bootstrapAdminUsername || !env.bootstrapAdminPassword) return
 
-  await UserProfile.updateMany(
-    {
-      $or: [{ registrationNumber: { $exists: false } }, { registrationNumber: null }, { registrationNumber: '' }],
-    },
-    [{ $set: { registrationNumber: '$externalId' } }]
-  )
+  // Migration: Lowercase all roles
+  const rolesToUpdate = [
+    { old: 'Student', new: 'student' },
+    { old: 'Faculty', new: 'faculty' },
+    { old: 'Master Admin', new: 'admin' }
+  ]
+  for (const { old: oldRole, new: newRole } of rolesToUpdate) {
+    await UserProfile.updateMany(
+      { role: oldRole },
+      { $set: { role: newRole } }
+    )
+  }
+
   await UserProfile.updateMany(
     {},
     {
@@ -22,25 +27,40 @@ export async function ensureBootstrapAdmin() {
         assignedFacultyId: '',
         isMainCoordinator: '',
         mainCoordinatorAssignedBy: '',
+        externalId: '',
+        authSource: ''
       },
     }
   )
 
-  const existingCredential = await LocalCredential.findOne({
-    username: env.bootstrapAdminUsername,
-  }).lean()
-  if (existingCredential) return
+  // Drop deprecated indexes
+  try {
+    await UserProfile.collection.dropIndex('externalId_1')
+  } catch (err) {
+    if (err.code !== 27) { // 27 = IndexNotFound
+      console.log('Skipped dropping externalId_1 index (not found or error)')
+    }
+  }
 
-  const externalId = env.bootstrapAdminId || 'ADMIN-0001'
+  // Drop another potential old index
+  try {
+    await UserProfile.collection.dropIndex('userExternalId_1')
+  } catch (err) {
+    // Ignore if not present
+  }
 
-  const profile = await UserProfile.findOneAndUpdate(
-    { externalId },
+  const registrationNumber = env.bootstrapAdminId || 'ADMIN-0001'
+
+  // Ensure admin profile exists in MongoDB for Keycloak lazy-linking
+  await UserProfile.findOneAndUpdate(
+    { registrationNumber },
     {
-      authSource: 'local',
-      role: 'Master Admin',
-      externalId,
-      registrationNumber: externalId,
-      name: env.bootstrapAdminName || 'Master Admin',
+      role: 'admin',
+      registrationNumber,
+      salutation: null,
+      firstName: env.bootstrapAdminName || 'Admin',
+      lastName: null,
+      name: env.bootstrapAdminName || 'Admin',
       email: env.bootstrapAdminEmail || null,
       phone: env.bootstrapAdminPhone || null,
       department: 'Administration',
@@ -52,14 +72,5 @@ export async function ensureBootstrapAdmin() {
     { upsert: true, new: true, setDefaultsOnInsert: true }
   )
 
-  await LocalCredential.create({
-    userId: profile._id,
-    userExternalId: profile.externalId,
-    username: env.bootstrapAdminUsername,
-    passwordHash: hashPassword(env.bootstrapAdminPassword),
-    mustResetPassword: false,
-    passwordUpdatedAt: new Date(),
-  })
-
-  console.log(`Bootstrap admin created: ${env.bootstrapAdminUsername}`)
+  console.log(`Bootstrap admin profile ensured: ${registrationNumber}`)
 }

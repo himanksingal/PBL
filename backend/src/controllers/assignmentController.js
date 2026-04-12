@@ -11,20 +11,20 @@ export async function listFacultyOptions(req, res) {
   const { page, pageSize, skip } = parsePagination(req.query)
 
   const filter = {
-    role: 'Faculty',
+    role: 'faculty',
   }
 
   if (search) {
     const regex = new RegExp(search, 'i')
-    filter.$or = [{ name: regex }, { registrationNumber: regex }, { department: regex }]
+    filter.$or = [{ firstName: regex }, { lastName: regex }, { registrationNumber: regex }, { department: regex }]
   }
 
   const [rows, total] = await Promise.all([
     UserProfile.find(filter)
-      .sort({ name: 1 })
+      .sort({ firstName: 1 })
       .skip(skip)
       .limit(pageSize)
-      .select({ registrationNumber: 1, name: 1, role: 1, department: 1, _id: 0 })
+      .select({ registrationNumber: 1, firstName: 1, lastName: 1, role: 1, department: 1, _id: 0 })
       .lean(),
     UserProfile.countDocuments(filter),
   ])
@@ -32,7 +32,8 @@ export async function listFacultyOptions(req, res) {
   return res.json({
     faculties: rows.map((item) => ({
       registrationNumber: item.registrationNumber,
-      name: item.name,
+      firstName: item.firstName,
+      lastName: item.lastName,
       role: item.role,
       department: item.department || null,
     })),
@@ -54,7 +55,7 @@ export async function listStudentOptions(req, res) {
   const semester = String(req.query.semester || '').trim()
   const { page, pageSize, skip } = parsePagination(req.query)
 
-  const filter = { role: 'Student' }
+  const filter = { role: 'student' }
 
   if (semester) {
     filter.semester = semester
@@ -66,18 +67,18 @@ export async function listStudentOptions(req, res) {
 
   if (search) {
     const regex = new RegExp(search, 'i')
-    filter.$or = [{ name: regex }, { registrationNumber: regex }, { department: regex }]
+    filter.$or = [{ firstName: regex }, { lastName: regex }, { registrationNumber: regex }, { department: regex }]
   }
 
   const [students, total] = await Promise.all([
     UserProfile.find(filter)
-      .sort({ name: 1 })
+      .sort({ firstName: 1 })
       .skip(skip)
       .limit(pageSize)
       .select({
-        externalId: 1,
         registrationNumber: 1,
-        name: 1,
+        firstName: 1,
+        lastName: 1,
         semester: 1,
         department: 1,
         assignedFacultyRegistrationNumber: 1,
@@ -89,26 +90,28 @@ export async function listStudentOptions(req, res) {
 
   // Resolve faculty names
   const assignedFacultyRegNumbers = [...new Set(students.map(s => s.assignedFacultyRegistrationNumber).filter(Boolean))]
-  let facultyNamesMap = {}
+  let facultyMap = {}
   if (assignedFacultyRegNumbers.length > 0) {
-    const faculties = await UserProfile.find({ registrationNumber: { $in: assignedFacultyRegNumbers } }).select({ registrationNumber: 1, name: 1 }).lean()
+    const faculties = await UserProfile.find({ registrationNumber: { $in: assignedFacultyRegNumbers } }).select({ registrationNumber: 1, firstName: 1, lastName: 1 }).lean()
     for (const f of faculties) {
-      facultyNamesMap[f.registrationNumber] = f.name
+      facultyMap[f.registrationNumber] = { firstName: f.firstName, lastName: f.lastName }
     }
   }
 
   return res.json({
     students: students.map((item) => {
       const assigned = item.assignedFacultyRegistrationNumber || null
-      const id = item.registrationNumber || item.externalId
+      const id = item.registrationNumber
       return {
         id,
         registrationNumber: item.registrationNumber,
-        name: item.name,
+        firstName: item.firstName,
+        lastName: item.lastName,
         semester: item.semester || null,
         department: item.department || null,
         assignedFacultyRegistrationNumber: assigned,
-        assignedFacultyName: assigned ? (facultyNamesMap[assigned] || null) : null,
+        assignedFacultyFirstName: assigned ? (facultyMap[assigned]?.firstName || null) : null,
+        assignedFacultyLastName: assigned ? (facultyMap[assigned]?.lastName || null) : null,
         selected: facultyRegistrationNumber ? assigned === facultyRegistrationNumber : false,
       }
     }),
@@ -142,7 +145,7 @@ export async function assignStudentsToFaculty(req, res) {
 
   const faculty = await UserProfile.findOne({
     registrationNumber: facultyRegistrationNumber,
-    role: 'Faculty',
+    role: 'faculty',
   }).lean()
 
   if (!faculty) {
@@ -153,7 +156,7 @@ export async function assignStudentsToFaculty(req, res) {
 
   await UserProfile.updateMany(
     {
-      role: 'Student',
+      role: 'student',
       assignedFacultyRegistrationNumber: facultyRegistrationNumber,
     },
     {
@@ -166,8 +169,8 @@ export async function assignStudentsToFaculty(req, res) {
   if (cleanIds.length > 0) {
     await UserProfile.updateMany(
       {
-        role: 'Student',
-        $or: [{ registrationNumber: { $in: cleanIds } }, { externalId: { $in: cleanIds } }],
+        role: 'student',
+        registrationNumber: { $in: cleanIds },
       },
       {
         $set: {

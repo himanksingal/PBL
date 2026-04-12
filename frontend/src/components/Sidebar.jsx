@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import {
-  BookUser, ClipboardList, GraduationCap, HandCoins, House, Menu,
-  Presentation, UserCircle2, Users, Settings,
-  FolderOpenDot, CheckSquare
+  BookUser, FolderOpenDot, CheckSquare,
+  House, Menu, Presentation, UserCircle2, Users, Settings
 } from 'lucide-react'
 
 const studentMenuItems = [
@@ -14,14 +13,6 @@ const facultyMenuItems = [
   { label: 'Home', path: '/home', icon: House },
   { label: 'Assignments', path: '/assignments', icon: BookUser },
   { label: 'Project/Internship Responses', path: '/pbl-review', icon: CheckSquare },
-]
-
-const defaultMenuItems = [
-  { label: 'Home', path: '/home', icon: House },
-  { label: 'Academics', path: '/timetable', icon: GraduationCap },
-  { label: 'Finance', path: '/marks', icon: HandCoins },
-  { label: 'Examination', path: '/reports', icon: ClipboardList },
-  { label: 'Profile', path: '/profile', icon: UserCircle2 },
 ]
 
 const adminMenuItems = [
@@ -64,7 +55,7 @@ export default function Sidebar({ role, user }) {
     }))
 
   const getPblMenuLabel = () => {
-    if (!user || role !== 'Student' || !user.semester) return 'Project/Internship Details'
+    if (!user || role !== 'student' || !user.semester) return 'Project/Internship Details'
     switch (String(user.semester)) {
       case '3': return 'PBL 1 Details'
       case '4': return 'PBL 2 Details'
@@ -90,15 +81,13 @@ export default function Sidebar({ role, user }) {
   ]
 
   const menuItems =
-    role === 'Student'
+    role === 'student'
       ? baseStudentMenu
-      : role === 'Master Admin'
+      : role === 'admin'
         ? [...adminMenuItems, ...facultyPhases, { label: 'Profile', path: '/profile', icon: UserCircle2 }]
-        : role === 'Faculty' || role === 'Faculty Coordinator'
-          ? (role === 'Faculty Coordinator' 
-              ? [...baseFacultyMenu.slice(0, -1), { label: 'Phase Config', path: '/admin/phases/config', icon: Settings }, baseFacultyMenu[baseFacultyMenu.length-1]] 
-              : baseFacultyMenu)
-          : defaultMenuItems
+        : role === 'Faculty Coordinator'
+          ? [...baseFacultyMenu.slice(0, -1), { label: 'Phase Config', path: '/admin/phases/config', icon: Settings }, baseFacultyMenu[baseFacultyMenu.length - 1]]
+          : baseFacultyMenu
 
   useEffect(() => {
     try {

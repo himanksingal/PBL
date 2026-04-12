@@ -71,7 +71,7 @@ export default function PblReview({ user }) {
               {students.map((row, idx) => (
                 <div key={idx} className="grid grid-cols-4 items-center px-6 py-4 hover:bg-brand-50/30 transition">
                   <div className="col-span-2 font-semibold text-sm text-slateish-800">
-                    {row.student.name} <span className="text-slateish-500 text-xs ml-2">({row.student.id})</span>
+                    {row.student?.name || 'N/A'} <span className="text-slateish-500 text-xs ml-2">({row.student?.id || 'Unknown'})</span>
                   </div>
                   <div className="text-sm text-slateish-600">
                     {row.latestSubmission ? (
@@ -110,7 +110,7 @@ export default function PblReview({ user }) {
           </button>
           <div className="flex justify-between items-center w-full">
             <h1 className="text-xl font-semibold text-slateish-700">
-              Form Details: {selectedStudent?.name} ({selectedStudent?.id})
+              Form Details: {selectedStudent?.name || 'N/A'} ({selectedStudent?.id || 'Unknown'})
             </h1>
             <div className="flex gap-3">
               <button 

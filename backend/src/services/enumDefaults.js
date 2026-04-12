@@ -1,6 +1,5 @@
 export const enumDefaults = {
-  roles: ['Student', 'Faculty', 'Master Admin'],
-  authSources: ['local', 'keycloak'],
+  roles: ['student', 'faculty', 'admin'],
   departments: ['DOCSE', 'DOCAI', 'DOECE', 'DOME', 'Administration'],
   branches: ['Computer Science & Engineering', 'CSE (AI/ML)', 'ECE', 'ME', 'Administration'],
   semesters: ['1', '2', '3', '4', '5', '6', '7', '8'],
@@ -9,7 +8,6 @@ export const enumDefaults = {
 
 export const enumLabels = {
   roles: 'Roles',
-  authSources: 'Auth Sources',
   departments: 'Departments',
   branches: 'Branches',
   semesters: 'Semesters',

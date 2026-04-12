@@ -1,6 +1,6 @@
 export const rolePermissions = {
-  Student: ['view-project', 'submit-update', 'view-assessments'],
-  Faculty: ['view-student', 'remark'],
+  student: ['view-project', 'submit-update', 'view-assessments'],
+  faculty: ['view-student', 'remark'],
   'Faculty Coordinator': [
     'assign-guide',
     'assign-project',
@@ -9,7 +9,7 @@ export const rolePermissions = {
     'view-student',
     'remark',
   ],
-  'Master Admin': [
+  admin: [
     'assign-guide',
     'assign-project',
     'broadcast',

@@ -66,10 +66,10 @@ export default function AvailableStudentsTable({
             >
               <div className="w-44 shrink-0 font-medium text-slateish-600 truncate pr-2">{student.registrationNumber}</div>
               <div className="flex-1 min-w-0 font-semibold text-slateish-800 truncate pr-2">
-                {student.name}
+                {`${student.firstName} ${student.lastName || ''}`.trim()}
                 {isAssignedToOther && (
                   <span className="block text-[9px] font-normal text-amber-600 line-clamp-1">
-                    Assigned: {student.assignedFacultyName || student.assignedFacultyRegistrationNumber}
+                    Assigned: {`${student.assignedFacultyFirstName} ${student.assignedFacultyLastName || ''}`.trim() || student.assignedFacultyRegistrationNumber}
                   </span>
                 )}
               </div>

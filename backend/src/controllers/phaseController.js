@@ -82,9 +82,9 @@ export const getStudentSubmissions = async (req, res) => {
     const { phaseId } = req.query
     const filter = phaseId ? { phaseId: Number(phaseId) } : {}
     
-    if (req.user.role === 'Faculty') {
+    if (req.user.role === 'faculty') {
       const assignedStudents = await UserProfile.find({
-        role: 'Student',
+        role: 'student',
         assignedFacultyRegistrationNumber: String(req.user.registrationNumber).trim()
       }).select('registrationNumber')
       const regNums = assignedStudents.map(s => s.registrationNumber)

@@ -7,8 +7,10 @@ function mapStudentItem(student, submissions) {
   const latest = submissions[0] || null
   return {
     student: {
-      id: student.registrationNumber || student.externalId,
-      name: student.name,
+      id: student.registrationNumber,
+      name: `${student.firstName} ${student.lastName || ''}`.trim() || 'N/A',
+      firstName: student.firstName,
+      lastName: student.lastName,
       semester: student.semester,
       graduationYear: student.graduationYear,
       department: student.department,
@@ -22,10 +24,10 @@ function mapStudentItem(student, submissions) {
 }
 
 async function buildAssignedStudentPayload(user, semesterFilter = null) {
-  const query = { role: 'Student' }
+  const query = { role: 'student' }
   
-  if (user.role === 'Faculty') {
-    const facultyProfile = await UserProfile.findOne({ externalId: user.id }).lean()
+  if (user.role === 'faculty') {
+    const facultyProfile = await UserProfile.findOne({ registrationNumber: user.registrationNumber || user.id }).lean()
     const facultyRegistrationNumber = facultyProfile?.registrationNumber || user.id
     query.assignedFacultyRegistrationNumber = facultyRegistrationNumber
   }
@@ -36,7 +38,7 @@ async function buildAssignedStudentPayload(user, semesterFilter = null) {
   const studentIds = [
     ...new Set(
       students
-        .flatMap((student) => [student.registrationNumber, student.externalId])
+        .map((student) => student.registrationNumber)
         .filter(Boolean)
     ),
   ]
@@ -55,7 +57,6 @@ async function buildAssignedStudentPayload(user, semesterFilter = null) {
   return students.map((student) => {
     const submissions = [
       ...(byStudent.get(student.registrationNumber) || []),
-      ...(byStudent.get(student.externalId) || []),
     ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
 
     return mapStudentItem(student, submissions)
@@ -94,7 +95,7 @@ export async function exportAssignedStudentResponses(req, res) {
     .map((item) => ({
       facultyRegistrationNumber: req.user.registrationNumber || req.user.id,
       studentId: item.student.id,
-      studentName: item.student.name,
+      studentName: `${item.student.firstName} ${item.student.lastName || ''}`.trim(),
       semester: item.student.semester,
       department: item.student.department,
       submissionType: item.latestSubmission.submissionType,

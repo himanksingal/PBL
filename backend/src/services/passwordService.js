@@ -1,13 +1,15 @@
-import bcrypt from 'bcrypt'
+//Local Auth is disabled
 
-// 10-12 rounds is a practical default for most app backends.
-const HASH_ROUNDS = Number(process.env.BCRYPT_ROUNDS || 12)
+// import bcrypt from 'bcrypt'
 
-export function hashPassword(password) {
-  return bcrypt.hashSync(password, HASH_ROUNDS)
-}
+// // 10-12 rounds is a practical default for most app backends.
+// const HASH_ROUNDS = Number(process.env.BCRYPT_ROUNDS || 12)
 
-export function verifyPassword(password, storedHash) {
-  if (!storedHash || typeof storedHash !== 'string') return false
-  return bcrypt.compareSync(password, storedHash)
-}
+// export function hashPassword(password) {
+//   return bcrypt.hashSync(password, HASH_ROUNDS)
+// }
+
+// export function verifyPassword(password, storedHash) {
+//   if (!storedHash || typeof storedHash !== 'string') return false
+//   return bcrypt.compareSync(password, storedHash)
+// }

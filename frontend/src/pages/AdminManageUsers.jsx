@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Button } from '../components/ui/button.jsx'
 import { Card } from '../components/ui/card.jsx'
-import { Checkbox } from '../components/ui/checkbox.jsx'
 import { Input } from '../components/ui/input.jsx'
 import {
   Select,
@@ -16,17 +15,13 @@ import UserDialog from '../components/admin/UserDialog.jsx'
 
 const initialForm = {
   id: '',
-  name: '',
-  role: 'Student',
-  authSource: 'local',
-  username: '',
-  password: '',
-  forcePasswordReset: true,
+  firstName: '',
+  lastName: '',
+  role: 'student',
   department: '',
   branch: '',
   assignedFacultyRegistrationNumber: '',
   semester: '',
-  graduationYear: '',
   email: '',
   phone: '',
   isCoordinator: false,
@@ -39,21 +34,18 @@ export default function AdminManageUsers() {
   const [filters, setFilters] = useState({
     search: '',
     semester: '',
-    graduationYear: '',
     department: '',
     branch: '',
-    role: 'Student',
+    role: 'student',
     sortBy: 'registrationNumber',
     sortOrder: 'asc',
   })
   const [pagination, setPagination] = useState({ page: 1, pageSize: 10, total: 0, totalPages: 1 })
   const [loading, setLoading] = useState(false)
-  const [searching, setSearching] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [enums, setEnums] = useState({
-    roles: { options: ['Student', 'Faculty', 'Faculty Coordinator', 'Master Admin'] },
-    authSources: { options: ['local', 'keycloak'] },
+    roles: { options: ['student', 'faculty', 'admin'] },
     departments: { options: [] },
     branches: { options: [] },
     semesters: { options: [] },
@@ -62,10 +54,12 @@ export default function AdminManageUsers() {
 
   // Dialog State
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [dialogMode, setDialogMode] = useState('add') // 'add' or 'manage'
+  const [dialogMode, setDialogMode] = useState('add')
   const [isEditingFields, setIsEditingFields] = useState(false)
   const [searchRegNo, setSearchRegNo] = useState('')
   const [searchError, setSearchError] = useState('')
+
+
 
   const queryString = useMemo(() => {
     const params = new URLSearchParams()
@@ -86,7 +80,6 @@ export default function AdminManageUsers() {
       setForm((prev) => ({
         ...prev,
         role: data.enums?.roles?.options?.[0] || prev.role,
-        authSource: data.enums?.authSources?.options?.[0] || prev.authSource,
       }))
     } catch {
       // fallback is already set in initial state
@@ -110,12 +103,11 @@ export default function AdminManageUsers() {
       setError(err.message)
     } finally {
       setLoading(false)
-      setSearching(false)
     }
   }
 
   const openAddDialog = () => {
-    setForm({ ...initialForm, role: enums?.roles?.options?.[0] || 'Student', authSource: enums?.authSources?.options?.[0] || 'local' })
+    setForm({ ...initialForm, role: enums?.roles?.options?.[0] || 'student' })
     setEditingId('')
     setDialogMode('add')
     setIsEditingFields(true)
@@ -149,7 +141,7 @@ export default function AdminManageUsers() {
       const user = (data.users || []).find((u) => u.id === searchRegNo.trim())
       
       if (user) {
-        onEdit(user) // populates form and sets editingId
+        onEdit(user)
         setIsEditingFields(false)
       } else {
         setSearchError('User not found.')
@@ -176,16 +168,27 @@ export default function AdminManageUsers() {
     setError('')
     setSuccess('')
 
+    const cleanPayload = { ...form }
+    
+    // Safety check: Only send fields applicable to the role
+    if (form.role === 'faculty' || form.role === 'admin') {
+      delete cleanPayload.semester;
+      delete cleanPayload.assignedFacultyRegistrationNumber;
+    }
+    if (form.role === 'admin') {
+      delete cleanPayload.branch;
+      delete cleanPayload.isCoordinator;
+    }
+
     const payload = {
-      ...form,
-      semester: form.semester || null,
-      graduationYear: form.graduationYear || null,
-      department: form.department || null,
-      branch: form.branch || null,
-      assignedFacultyRegistrationNumber: form.assignedFacultyRegistrationNumber || null,
-      email: form.email || null,
-      phone: form.phone || null,
-      isCoordinator: form.isCoordinator || false,
+      ...cleanPayload,
+      semester: cleanPayload.semester || null,
+      department: cleanPayload.department || null,
+      branch: cleanPayload.branch || null,
+      assignedFacultyRegistrationNumber: cleanPayload.assignedFacultyRegistrationNumber || null,
+      email: cleanPayload.email || null,
+      phone: cleanPayload.phone || null,
+      isCoordinator: Boolean(cleanPayload.isCoordinator),
     }
 
     const endpoint = editingId
@@ -210,28 +213,23 @@ export default function AdminManageUsers() {
     setSuccess(editingId ? 'User updated successfully.' : 'User created successfully.')
     setIsEditingFields(false)
     if (!editingId && data.user) {
-      setEditingId(data.user.internalId || data.user.id)
+      setEditingId(data.user.id)
     }
     
-    setSearching(true)
     await loadUsers(queryString)
   }
 
   const onEdit = (user) => {
-    setEditingId(user.internalId || user.id)
+    setEditingId(user.id)
     setForm({
       id: user.id,
-      name: user.name || '',
-      role: user.role || (enums?.roles?.options?.[0] || 'Student'),
-      authSource: user.authSource || (enums?.authSources?.options?.[0] || 'local'),
-      username: user.username || '',
-      password: '',
-      forcePasswordReset: Boolean(user.mustResetPassword),
+      firstName: user.firstName || '',
+      lastName: user.lastName || '',
+      role: user.role || (enums?.roles?.options?.[0] || 'student'),
       department: user.department || '',
       branch: user.branch || '',
       assignedFacultyRegistrationNumber: user.assignedFacultyRegistrationNumber || '',
       semester: user.semester || '',
-      graduationYear: user.graduationYear || '',
       email: user.email || '',
       phone: user.phone || '',
       isCoordinator: Boolean(user.isCoordinator),
@@ -239,7 +237,6 @@ export default function AdminManageUsers() {
   }
 
   const onDelete = async (id) => {
-    // Only used directly in the table currently
     setError('')
     setSuccess('')
 
@@ -255,16 +252,16 @@ export default function AdminManageUsers() {
     }
 
     setSuccess('User deleted.')
-    setSearching(true)
     await loadUsers(queryString)
   }
+
+
 
   useEffect(() => {
     loadEnums()
   }, [])
 
   useEffect(() => {
-    setSearching(true)
     const timer = setTimeout(() => {
       loadUsers(queryString)
     }, 400)
@@ -273,11 +270,9 @@ export default function AdminManageUsers() {
   }, [queryString])
 
   const roleOptions = enums?.roles?.options || []
-  const authSourceOptions = enums?.authSources?.options || []
   const departmentOptions = enums?.departments?.options || []
   const branchOptions = enums?.branches?.options || []
   const semesterOptions = enums?.semesters?.options || []
-  const graduationYearOptions = enums?.graduationYears?.options || []
 
   return (
     <div className="space-y-6 px-6 py-4">
@@ -295,10 +290,12 @@ export default function AdminManageUsers() {
         </div>
       </Card>
 
+
+
       <Card>
         {/* Role Tabs */}
         <div className="mb-6 flex overflow-hidden rounded-lg border border-slateish-200 bg-slateish-50 w-fit">
-          {['Student', 'Faculty', 'Master Admin'].map((r) => {
+          {['student', 'faculty', 'admin'].map((r) => {
             const isActive = filters.role === r
             return (
               <button
@@ -306,7 +303,15 @@ export default function AdminManageUsers() {
                 key={r}
                 onClick={() => {
                   setPagination((prev) => ({ ...prev, page: 1 }))
-                  setFilters((prev) => ({ ...prev, role: r }))
+                  setFilters({
+                    search: '',
+                    semester: '',
+                    department: '',
+                    branch: '',
+                    role: r,
+                    sortBy: 'registrationNumber',
+                    sortOrder: 'asc',
+                  })
                 }}
                 className={[
                   'px-6 py-2.5 text-sm font-semibold transition',
@@ -315,7 +320,7 @@ export default function AdminManageUsers() {
                     : 'text-slateish-600 hover:bg-slateish-100/50 hover:text-slateish-800'
                 ].join(' ')}
               >
-                {r === 'Master Admin' ? 'Admin' : r}
+                {r === 'admin' ? 'Admin' : (r.charAt(0).toUpperCase() + r.slice(1))}
               </button>
             )
           })}
@@ -331,32 +336,21 @@ export default function AdminManageUsers() {
               setFilters((prev) => ({ ...prev, search: e.target.value }))
             }}
           />
-          <Select
-            value={filters.semester || '__all__'}
-            onValueChange={(value) => {
-              setPagination((prev) => ({ ...prev, page: 1 }))
-              setFilters((prev) => ({ ...prev, semester: value === '__all__' ? '' : value }))
-            }}
-          >
-            <SelectTrigger className="h-11 border-slateish-200"><SelectValue placeholder="Semester" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__all__">All Semesters</SelectItem>
-              {semesterOptions.map((option) => <SelectItem key={option} value={option}>{option}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Select
-            value={filters.graduationYear || '__all__'}
-            onValueChange={(value) => {
-              setPagination((prev) => ({ ...prev, page: 1 }))
-              setFilters((prev) => ({ ...prev, graduationYear: value === '__all__' ? '' : value }))
-            }}
-          >
-            <SelectTrigger className="h-11 border-slateish-200"><SelectValue placeholder="Year" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__all__">All Years</SelectItem>
-              {graduationYearOptions.map((option) => <SelectItem key={option} value={option}>{option}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          {filters.role === 'student' && (
+            <Select
+              value={filters.semester || '__all__'}
+              onValueChange={(value) => {
+                setPagination((prev) => ({ ...prev, page: 1 }))
+                setFilters((prev) => ({ ...prev, semester: value === '__all__' ? '' : value }))
+              }}
+            >
+              <SelectTrigger className="h-11 border-slateish-200"><SelectValue placeholder="Semester" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">All Semesters</SelectItem>
+                {semesterOptions.map((option) => <SelectItem key={option} value={option}>{option}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          )}
           <Select
             value={filters.sortOrder}
             onValueChange={(value) => setFilters((prev) => ({ ...prev, sortOrder: value }))}
@@ -369,21 +363,23 @@ export default function AdminManageUsers() {
           </Select>
         </div>
 
-        {(searching || loading) && (
+        {loading && (
           <div className="mt-4 flex items-center gap-2 text-sm text-slateish-500">
             <Spinner />
             Searching users...
           </div>
         )}
 
+        {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
+        {success && <p className="mt-4 text-sm text-emerald-600 font-semibold">{success}</p>}
+
         <UserTable 
           users={users}
-          loading={loading}
-          searching={searching}
           onEditClick={onEditClick}
           onDelete={onDelete}
           pagination={pagination}
           setPagination={setPagination}
+          currentRole={filters.role}
         />
       </Card>
 
@@ -404,11 +400,9 @@ export default function AdminManageUsers() {
         editingId={editingId}
         onSubmit={onSubmit}
         roleOptions={roleOptions}
-        authSourceOptions={authSourceOptions}
         departmentOptions={departmentOptions}
         branchOptions={branchOptions}
         semesterOptions={semesterOptions}
-        graduationYearOptions={graduationYearOptions}
       />
     </div>
   )

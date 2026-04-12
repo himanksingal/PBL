@@ -27,11 +27,9 @@ export default function UserDialog({
   editingId,
   onSubmit,
   roleOptions,
-  authSourceOptions,
   departmentOptions,
   branchOptions,
-  semesterOptions,
-  graduationYearOptions
+  semesterOptions
 }) {
   if (!dialogOpen) return null;
 
@@ -71,6 +69,7 @@ export default function UserDialog({
 
         {(dialogMode === 'add' || editingId) && (
           <form className="grid gap-4 md:grid-cols-3" onSubmit={onSubmit}>
+            {/* Common Identity Fields */}
             <Input
               placeholder="Registration Number"
               value={form.id}
@@ -79,12 +78,19 @@ export default function UserDialog({
               required
             />
             <Input
-              placeholder="Name"
-              value={form.name}
-              onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
+              placeholder="First Name"
+              value={form.firstName || ''}
+              onChange={(e) => setForm((prev) => ({ ...prev, firstName: e.target.value }))}
               disabled={!isEditingFields}
               required
             />
+            <Input
+              placeholder="Last Name"
+              value={form.lastName || ''}
+              onChange={(e) => setForm((prev) => ({ ...prev, lastName: e.target.value }))}
+              disabled={!isEditingFields}
+            />
+            
             <Select
               value={form.role}
               onValueChange={(value) => setForm((prev) => ({ ...prev, role: value }))}
@@ -95,65 +101,14 @@ export default function UserDialog({
               </SelectTrigger>
               <SelectContent>
                 {roleOptions.map((role) => (
-                  <SelectItem key={role} value={role}>
-                    {role}
-                  </SelectItem>
+                  <SelectItem key={role} value={role}>{role}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            {form.role === 'Faculty' && (
-              <label className={`flex items-center gap-2 rounded-md border border-slateish-200 px-3 py-2 text-sm text-slateish-600 ${!isEditingFields ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-slateish-50'}`}>
-                <Checkbox
-                  checked={Boolean(form.isCoordinator)}
-                  onCheckedChange={(checked) =>
-                    setForm((prev) => ({ ...prev, isCoordinator: Boolean(checked) }))
-                  }
-                  disabled={!isEditingFields}
-                />
-                Is Faculty Coordinator?
-              </label>
-            )}
-            <Select
-              value={form.authSource}
-              onValueChange={(value) => setForm((prev) => ({ ...prev, authSource: value }))}
-              disabled={!isEditingFields}
-            >
-              <SelectTrigger className="border-slateish-200 disabled:opacity-50">
-                <SelectValue placeholder="Select auth source" />
-              </SelectTrigger>
-              <SelectContent>
-                {authSourceOptions.map((source) => (
-                  <SelectItem key={source} value={source}>
-                    {source === 'local' ? 'Local (Mongo)' : 'Keycloak'}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Input
-              placeholder="Username (local auth)"
-              value={form.username}
-              onChange={(e) => setForm((prev) => ({ ...prev, username: e.target.value }))}
-              required={form.authSource === 'local'}
-              disabled={!isEditingFields || form.authSource !== 'local'}
-            />
-            <Input
-              type="password"
-              placeholder={editingId ? 'New Password (optional)' : 'Temporary Password (min 8 chars)'}
-              value={form.password}
-              onChange={(e) => setForm((prev) => ({ ...prev, password: e.target.value }))}
-              required={form.authSource === 'local' && !editingId}
-              disabled={!isEditingFields || form.authSource !== 'local'}
-            />
-            <label className={`flex items-center gap-2 rounded-md border border-slateish-200 px-3 py-2 text-sm text-slateish-600 ${(!isEditingFields || form.authSource !== 'local') ? 'opacity-50' : ''}`}>
-              <Checkbox
-                checked={Boolean(form.forcePasswordReset)}
-                onCheckedChange={(checked) =>
-                  setForm((prev) => ({ ...prev, forcePasswordReset: Boolean(checked) }))
-                }
-                disabled={!isEditingFields || form.authSource !== 'local'}
-              />
-              Force password reset on next login
-            </label>
+
+
+
+            {/* Department (Common to all) */}
             <Select
               value={form.department || '__empty__'}
               onValueChange={(value) => setForm((prev) => ({ ...prev, department: value === '__empty__' ? '' : value }))}
@@ -169,59 +124,70 @@ export default function UserDialog({
                 ))}
               </SelectContent>
             </Select>
-            <Select
-              value={form.branch || '__empty__'}
-              onValueChange={(value) => setForm((prev) => ({ ...prev, branch: value === '__empty__' ? '' : value }))}
-              disabled={!isEditingFields}
-            >
-              <SelectTrigger className="border-slateish-200 disabled:opacity-50">
-                <SelectValue placeholder="Branch" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__empty__">None</SelectItem>
-                {branchOptions.map((option) => (
-                  <SelectItem key={option} value={option}>{option}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Input
-              placeholder="Assigned Faculty Reg No."
-              value={form.assignedFacultyRegistrationNumber}
-              onChange={(e) =>
-                setForm((prev) => ({ ...prev, assignedFacultyRegistrationNumber: e.target.value }))
-              }
-              disabled={!isEditingFields}
-            />
-            <Select
-              value={form.semester || '__empty__'}
-              onValueChange={(value) => setForm((prev) => ({ ...prev, semester: value === '__empty__' ? '' : value }))}
-              disabled={!isEditingFields}
-            >
-              <SelectTrigger className="border-slateish-200 disabled:opacity-50">
-                <SelectValue placeholder="Semester" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__empty__">None</SelectItem>
-                {semesterOptions.map((option) => (
-                  <SelectItem key={option} value={option}>{option}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select
-              value={form.graduationYear || '__empty__'}
-              onValueChange={(value) => setForm((prev) => ({ ...prev, graduationYear: value === '__empty__' ? '' : value }))}
-              disabled={!isEditingFields}
-            >
-              <SelectTrigger className="border-slateish-200 disabled:opacity-50">
-                <SelectValue placeholder="Graduation Year" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__empty__">None</SelectItem>
-                {graduationYearOptions.map((option) => (
-                  <SelectItem key={option} value={option}>{option}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+
+            {/* Branch (Student and Faculty only) */}
+            {(form.role === 'student' || form.role === 'faculty') && (
+              <Select
+                value={form.branch || '__empty__'}
+                onValueChange={(value) => setForm((prev) => ({ ...prev, branch: value === '__empty__' ? '' : value }))}
+                disabled={!isEditingFields}
+              >
+                <SelectTrigger className="border-slateish-200 disabled:opacity-50">
+                  <SelectValue placeholder="Branch" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__empty__">None</SelectItem>
+                  {branchOptions.map((option) => (
+                    <SelectItem key={option} value={option}>{option}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
+            {/* Student-Specific: Semester and Assigned Faculty */}
+            {form.role === 'student' && (
+              <>
+                <Select
+                  value={form.semester || '__empty__'}
+                  onValueChange={(value) => setForm((prev) => ({ ...prev, semester: value === '__empty__' ? '' : value }))}
+                  disabled={!isEditingFields}
+                >
+                  <SelectTrigger className="border-slateish-200 disabled:opacity-50">
+                    <SelectValue placeholder="Semester" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__empty__">None</SelectItem>
+                    {semesterOptions.map((option) => (
+                      <SelectItem key={option} value={option}>{option}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input
+                  placeholder="Assigned Faculty Reg No."
+                  value={form.assignedFacultyRegistrationNumber || ''}
+                  onChange={(e) =>
+                    setForm((prev) => ({ ...prev, assignedFacultyRegistrationNumber: e.target.value }))
+                  }
+                  disabled={!isEditingFields}
+                />
+              </>
+            )}
+
+            {/* Faculty-Specific: Coordinator Flag */}
+            {form.role === 'faculty' && (
+              <label className={`flex items-center gap-2 rounded-md border border-slateish-200 px-3 py-2 text-sm text-slateish-600 ${!isEditingFields ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-slateish-50'}`}>
+                <Checkbox
+                  checked={Boolean(form.isCoordinator)}
+                  onCheckedChange={(checked) =>
+                    setForm((prev) => ({ ...prev, isCoordinator: Boolean(checked) }))
+                  }
+                  disabled={!isEditingFields}
+                />
+                Is Faculty Coordinator?
+              </label>
+            )}
+
+            {/* Contact Info (Common) */}
             <Input
               type="email"
               placeholder="Email"
@@ -235,6 +201,7 @@ export default function UserDialog({
               onChange={(e) => setForm((prev) => ({ ...prev, phone: e.target.value }))}
               disabled={!isEditingFields}
             />
+
             <div className="md:col-span-3 flex gap-3 mt-4 pt-4 border-t border-slateish-200">
                {!isEditingFields ? (
                   <Button key="edit-btn" type="button" onClick={(e) => { e.preventDefault(); setIsEditingFields(true); }}>

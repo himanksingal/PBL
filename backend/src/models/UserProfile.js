@@ -10,11 +10,11 @@ const UserProfileSchema = new mongoose.Schema(
 
     //  Auth Linking
     keycloakId: { type: String, unique: true, sparse: true },
-    localAuth: { type: Boolean, default: false },
 
     //  Common Info
-    name: { type: String, required: true },
-    email: { type: String, required: true },
+    firstName: { type: String, required: true },
+    lastName: { type: String, default: null },
+    email: { type: String, default: null },
     phone: { type: String, default: null },
 
     //  Academic / Organization
@@ -24,26 +24,18 @@ const UserProfileSchema = new mongoose.Schema(
     //  Student Fields
     semester: { type: String, default: null },
     graduationYear: { type: String, default: null },
-    section: { type: String, default: null },
-    cgpa: { type: Number, default: null },
 
     //  Faculty Fields
-    designation: { type: String, default: null },
     dateOfJoining: { type: Date, default: null },
     isCoordinator: { type: Boolean, default: false },
 
     //  Relationships
     assignedFacultyRegistrationNumber: { type: String, default: null },
 
-    //  Profile Enhancements
-    profilePicture: { type: String, default: null },
-    bio: { type: String, default: null },
-
     //  Metadata
     enrollmentDate: { type: Date, default: null },
     coordinatorSince: { type: Date, default: null },
     adminSince: { type: Date, default: null }
-
   },
   {
     timestamps: true
