@@ -308,18 +308,43 @@ export default function PhaseEvaluate({ user }) {
                         })}
                       </div>
                       
-                      {sub.documents?.length > 0 && (
-                        <div className="mt-4">
-                          <h4 className="text-xs font-semibold text-slateish-500 mb-2">Documents</h4>
-                          <div className="flex gap-2 flex-wrap">
-                            {sub.documents.map(doc => (
-                              <a key={doc._id} href={doc.url} target="_blank" rel="noreferrer" className="text-xs bg-brand-100 text-brand-700 px-3 py-1 rounded-full hover:bg-brand-200">
-                                {phaseConfig?.fields?.find(f => f.name === doc.label)?.label || doc.label}
-                              </a>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+                      {(() => {
+                         const fileFields = phaseConfig?.fields?.filter(f => f.type === 'file') || []
+                         if (fileFields.length === 0) return null
+                         
+                         const uploadedDocs = fileFields.map(fConf => {
+                            const doc = sub.documents?.find(d => d.label === fConf.name)
+                            const objectKeyOrUrl = sub.formData?.[fConf.name] || doc?.url
+                            return { fConf, objectKeyOrUrl }
+                         }).filter(d => d.objectKeyOrUrl)
+
+                         if (uploadedDocs.length === 0) return null
+
+                         return (
+                           <div className="mt-4">
+                             <h4 className="text-xs font-semibold text-slateish-500 mb-2">Documents</h4>
+                             <div className="flex gap-2 flex-wrap">
+                               {uploadedDocs.map(({ fConf, objectKeyOrUrl }) => (
+                                     <button
+                                       key={fConf.name}
+                                       type="button"
+                                       onClick={(e) => {
+                                          e.preventDefault(); e.stopPropagation();
+                                          if (objectKeyOrUrl.startsWith('/uploads/')) {
+                                              window.open(objectKeyOrUrl, '_blank')
+                                          } else {
+                                              window.open(`/api/files/download?objectKey=${encodeURIComponent(objectKeyOrUrl)}`, '_blank')
+                                          }
+                                       }}
+                                       className="text-xs bg-brand-100 text-brand-700 px-3 py-1 rounded-full hover:bg-brand-200"
+                                     >
+                                       {fConf.label}
+                                     </button>
+                                  ))}
+                             </div>
+                           </div>
+                         )
+                      })()}
 
                       {isCoordinator && (
                         <div className="mt-4 text-right border-t pt-3">

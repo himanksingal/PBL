@@ -223,13 +223,28 @@ export default function PhaseReview({ user }) {
                 <div className="mt-2 text-sm">
                   {isTemplate ? (
                     <span className="text-slateish-400 italic">File upload input rendered here for students.</span>
-                  ) : selectedSub?.documents?.find(d => d.label === field.name) ? (
-                    <a href={selectedSub.documents.find(d => d.label === field.name).url} target="_blank" rel="noreferrer" className="text-brand-600 font-semibold hover:underline">
-                      View Uploaded Document
-                    </a>
-                  ) : (
-                    <span className="text-slateish-500 italic">No document uploaded.</span>
-                  )}
+                  ) : (() => {
+                    const doc = selectedSub?.documents?.find(d => d.label === field.name)
+                    const objectKeyOrUrl = selectedSub?.formData?.[field.name] || doc?.url
+                    if (!objectKeyOrUrl) return <span className="text-slateish-500 italic">No document uploaded.</span>
+                    return (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            if (objectKeyOrUrl.startsWith('/uploads/')) {
+                                window.open(objectKeyOrUrl, '_blank')
+                            } else {
+                                window.open(`/api/files/download?objectKey=${encodeURIComponent(objectKeyOrUrl)}`, '_blank')
+                            }
+                          }}
+                          className="text-brand-600 font-semibold hover:underline"
+                        >
+                          View Uploaded Document
+                        </button>
+                    )
+                  })()}
                 </div>
               ) : (
                 <input

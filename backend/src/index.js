@@ -15,7 +15,9 @@ import facultyRoutes from './routes/facultyRoutes.js'
 import assignmentRoutes from './routes/assignmentRoutes.js'
 import metaRoutes from './routes/metaRoutes.js'
 import phaseRoutes from './routes/phaseRoutes.js'
+import fileRoutes from './routes/fileRoutes.js'
 import { syncAllStudentSemesters } from './services/semesterSync.js'
+import { ensureBucketExists } from './services/minioService.js'
 
 const app = express()
 
@@ -50,6 +52,7 @@ app.use('/api/faculty', facultyRoutes)
 app.use('/api/assignments', assignmentRoutes)
 app.use('/api/meta', metaRoutes)
 app.use('/api/phases', phaseRoutes)
+app.use('/api/files', fileRoutes)
 
 app.use((error, req, res, next) => {
   if (error) {
@@ -71,6 +74,7 @@ async function startServer() {
   await connectDatabase()
   await ensureBootstrapAdmin()
   await syncAllStudentSemesters()
+  await ensureBucketExists()
 
   const server = app.listen(env.port, env.host, () => {
     console.log(`API listening on http://${env.host}:${env.port}`)

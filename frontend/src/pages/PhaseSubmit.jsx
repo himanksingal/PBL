@@ -59,8 +59,63 @@ export default function PhaseSubmit({ user }) {
     setFormData(prev => ({ ...prev, [name]: value }))
   }
 
+  const MAX_FILE_SIZE_MB = 10;
+  const ALLOWED_EXTENSIONS = ['.pdf', '.doc', '.docx', '.ppt', '.pptx', '.xls', '.xlsx', '.png', '.jpg', '.jpeg', '.txt', '.csv', '.zip']
+  
   const handleFileChange = (name, file) => {
+    if (file) {
+      if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
+        alert(`File size exceeds the maximum limit of ${MAX_FILE_SIZE_MB}MB.`);
+        return;
+      }
+      
+      const ext = (file.name || '').toLowerCase().match(/\.[a-z0-9]+$/)?.[0];
+      if (!ext || !ALLOWED_EXTENSIONS.includes(ext)) {
+        alert(`Invalid file type. Allowed types are: ${ALLOWED_EXTENSIONS.join(', ')}`);
+        return;
+      }
+    }
     setFiles(prev => ({ ...prev, [name]: file }))
+  }
+
+  /**
+   * Upload a single file to MinIO via presigned URL, then confirm it.
+   * Returns the objectKey on success, or throws on failure.
+   */
+  const uploadFileToMinio = async (fieldName, file) => {
+    // 1. Get presigned upload URL from backend
+    const urlRes = await fetch('/api/files/upload-url', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fileName: file.name,
+        accessType: 'student',
+        linkedEntityId: phaseId,
+        linkedEntityType: 'phase-submission',
+      }),
+    })
+    const urlData = await urlRes.json()
+    if (!urlRes.ok) throw new Error(urlData.error || 'Failed to get upload URL')
+
+    // 2. Upload file directly to MinIO using the presigned URL
+    const uploadRes = await fetch(urlData.uploadUrl, {
+      method: 'PUT',
+      body: file,
+      headers: { 'Content-Type': file.type || 'application/octet-stream' },
+    })
+    if (!uploadRes.ok) throw new Error('Failed to upload file to storage')
+
+    // 3. Confirm upload with backend
+    const confirmRes = await fetch('/api/files/confirm-upload', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ objectKey: urlData.objectKey }),
+    })
+    if (!confirmRes.ok) throw new Error('Failed to confirm upload')
+
+    return urlData.objectKey
   }
 
   const handleSubmit = async (e) => {
@@ -68,27 +123,54 @@ export default function PhaseSubmit({ user }) {
     setSubmitting(true)
     setError(null)
     try {
-      const formPayload = new FormData()
-      formPayload.append('formData', JSON.stringify(formData))
-      
-      // Append files
-      Object.entries(files).forEach(([name, file]) => {
+      // Upload all files to MinIO first and collect objectKeys
+      const fileObjectKeys = {}
+      for (const [fieldName, file] of Object.entries(files)) {
         if (file) {
-          formPayload.append(name, file)
+          const objectKey = await uploadFileToMinio(fieldName, file)
+          fileObjectKeys[fieldName] = objectKey
         }
-      })
+      }
+
+      // Merge objectKeys into formData so the backend stores them alongside the form fields
+      const mergedFormData = { ...formData, ...fileObjectKeys }
+
+      // Build documents array for backward compatibility with PhaseSubmission.documents
+      const documents = Object.entries(fileObjectKeys).map(([label, objectKey]) => ({
+        label,
+        url: objectKey, // Store objectKey instead of local path
+      }))
+
+      const formPayload = new FormData()
+      formPayload.append('formData', JSON.stringify(mergedFormData))
+      // Note: We no longer append actual files — they're already in MinIO.
+      // But we still need to send the documents metadata to the backend.
 
       const res = await fetch(`/api/phases/submit/${phaseId}`, {
         method: 'POST',
         credentials: 'include',
-        body: formPayload
+        body: formPayload,
       })
 
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Submission failed')
       
+      // Patch the returned submission's documents with our MinIO objectKeys
+      if (documents.length > 0 && data.submission) {
+        // The backend saved the submission without file attachments (we sent no files via multer),
+        // so we update the documents on the submission manually
+        await fetch(`/api/phases/submit/${phaseId}`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            formData: JSON.stringify(mergedFormData),
+          }),
+        })
+      }
+
       setSubmission(data.submission)
-      // Clear files
+      setFormData(mergedFormData) // Update formData state so View buttons appear immediately
       setFiles({})
       if (formRef.current) formRef.current.reset()
       alert('Submitted successfully')
@@ -97,6 +179,25 @@ export default function PhaseSubmit({ user }) {
     } finally {
       setSubmitting(false)
     }
+  }
+
+  /**
+   * View a file. Opens the URL directly in a new tab.
+   * The backend streaming endpoint provides Content-Disposition: inline
+   * so the browser will display it (e.g. PDFs) natively and preserve the filename.
+   */
+  const handleViewFile = (objectKeyOrUrl) => {
+    if (!objectKeyOrUrl) return
+
+    // Legacy local files
+    if (objectKeyOrUrl.startsWith('/uploads/')) {
+      window.open(objectKeyOrUrl, '_blank')
+      return
+    }
+
+    // New MinIO files
+    const url = `/api/files/download?objectKey=${encodeURIComponent(objectKeyOrUrl)}`
+    window.open(url, '_blank')
   }
 
   if (loading) return <div className="p-6">Loading phase details...</div>
@@ -173,18 +274,34 @@ export default function PhaseSubmit({ user }) {
               </select>
               ) : field.type === 'file' ? (
                 <div className="mt-2">
-                  {submission?.documents?.find(d => d.label === field.name) && (
-                    <div className="mb-2 text-xs text-brand-600">
-                      <a href={submission.documents.find(d => d.label === field.name).url} target="_blank" rel="noreferrer" className="underline font-semibold">
-                        View currently uploaded {field.label}
-                      </a>
-                    </div>
-                  )}
+                  {/* Show link to existing uploaded file */}
+                  {(submission?.documents?.find(d => d.label === field.name) || formData[field.name]) && (() => {
+                    const doc = submission?.documents?.find(d => d.label === field.name)
+                    // ALWAYS prioritize formData which holds the exact MinIO objectKey we just uploaded.
+                    // Fallback to the legacy doc.url if formData is empty.
+                    const objectKeyOrUrl = formData[field.name] || doc?.url
+                    if (!objectKeyOrUrl || typeof objectKeyOrUrl !== 'string') return null
+                    return (
+                      <div className="mb-2 text-xs text-brand-600">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            handleViewFile(objectKeyOrUrl)
+                          }}
+                          className="underline font-semibold cursor-pointer hover:text-brand-700"
+                        >
+                          View currently uploaded {field.label}
+                        </button>
+                      </div>
+                    )
+                  })()}
                   {!isLocked && (
                     <input
                       type="file"
                       className="shadcn-input h-9 text-sm py-1.5"
-                      required={field.required && !submission?.documents?.find(d => d.label === field.name)}
+                      required={field.required && !submission?.documents?.find(d => d.label === field.name) && !formData[field.name]}
                       onChange={e => handleFileChange(field.name, e.target.files[0])}
                     />
                   )}

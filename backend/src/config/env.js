@@ -26,4 +26,12 @@ export const env = {
   bootstrapAdminPassword: process.env.LOCAL_BOOTSTRAP_ADMIN_PASSWORD || '',
   keycloakAdminClientId: process.env.KEYCLOAK_ADMIN_CLIENT_ID || '',
   keycloakAdminClientSecret: process.env.KEYCLOAK_ADMIN_CLIENT_SECRET || '',
+
+  // MinIO
+  minioEndpoint: process.env.MINIO_ENDPOINT || 'localhost',
+  minioPort: Number(process.env.MINIO_PORT) || 9000,
+  minioUseSsl: process.env.MINIO_USE_SSL === 'true',
+  minioAccessKey: process.env.MINIO_ACCESS_KEY || '',
+  minioSecretKey: process.env.MINIO_SECRET_KEY || '',
+  minioBucketName: process.env.MINIO_BUCKET_NAME || 'muj-portal',
 }
